@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 
 function LandingPage() {
   const navigate = useNavigate()
@@ -34,7 +35,18 @@ function LandingPage() {
               Controller (Dock)
             </h2>
             <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
-              <code className="block text-xs text-zinc-400 mb-4 break-all">
+              {/* QR Code */}
+              <div className="flex justify-center mb-4">
+                <div className="bg-white p-3 rounded-lg">
+                  <QRCodeSVG
+                    value={controllerUrl}
+                    size={180}
+                    level="M"
+                    includeMargin={false}
+                  />
+                </div>
+              </div>
+              <code className="block text-xs text-zinc-400 mb-4 break-all text-center">
                 {controllerUrl}
               </code>
               <div className="flex gap-3">
