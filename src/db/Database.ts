@@ -29,6 +29,7 @@ export type SongDetail = {
   sections: Section[];
   chords?: string; // Raw chords text with markers like [G]
   display?: string; // Display text for presentation (replaces lyrics)
+  lyrics?: string; // Plain lyrics text
   is_active?: boolean; // Whether the song is active and visible in the app
   updated_at?: string; // Timestamp for delta sync
 }
