@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SetlistItem } from '../db/Database'
+import { getCurrentRoom, updateRoomState } from '../services/RoomService'
 
 // BroadcastChannel for cross-tab synchronization
 const channel = new BroadcastChannel('worship-runtime-state')
@@ -52,6 +53,13 @@ export const useStore = create<StoreState>((set) => ({
   currentSongId: null,
   setCurrentSongId: (id) => {
     set({ currentSongId: id })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { current_song_id: id })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'currentSongId', value: id })
     }
@@ -60,18 +68,39 @@ export const useStore = create<StoreState>((set) => ({
   currentSlideIndex: 0,
   setCurrentSectionIndex: (index) => {
     set({ currentSectionIndex: index })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { current_section_index: index })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'currentSectionIndex', value: index })
     }
   },
   setCurrentSlideIndex: (index) => {
     set({ currentSlideIndex: index })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { current_slide_index: index })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'currentSlideIndex', value: index })
     }
   },
   resetPresentation: () => {
     set({ currentSectionIndex: 0, currentSlideIndex: 0 })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { current_section_index: 0, current_slide_index: 0 })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'resetPresentation' })
     }
@@ -79,6 +108,13 @@ export const useStore = create<StoreState>((set) => ({
   presentationDensity: 4,
   setPresentationDensity: (density) => {
     set({ presentationDensity: density })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { presentation_density: density })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'presentationDensity', value: density })
     }
@@ -90,6 +126,17 @@ export const useStore = create<StoreState>((set) => ({
   liveSlideIndex: 0,
   setLiveSlide: (songId, sectionIndex, slideIndex) => {
     set({ liveSongId: songId, liveSectionIndex: sectionIndex, liveSlideIndex: slideIndex })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { 
+        live_song_id: songId, 
+        live_section_index: sectionIndex, 
+        live_slide_index: slideIndex 
+      })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'liveSlide', value: { songId, sectionIndex, slideIndex } })
     }
@@ -97,6 +144,13 @@ export const useStore = create<StoreState>((set) => ({
   isLiveActive: false,
   setIsLiveActive: (active) => {
     set({ isLiveActive: active })
+    
+    // Broadcast to room if active
+    const { roomId, isOwner } = getCurrentRoom()
+    if (roomId && isOwner) {
+      updateRoomState(roomId, { is_live_active: active })
+    }
+    
     if (!isBroadcasting) {
       channel.postMessage({ type: 'isLiveActive', value: active })
     }

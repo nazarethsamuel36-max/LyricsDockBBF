@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { getCurrentRoom, getRoomState, subscribeToRoomState } from '../services/RoomService'
+import type { RoomState } from '../services/RoomService'
 
 function ViewPage() {
   const [currentSlide, setCurrentSlide] = useState<{ lines: string[] } | null>(null)
+  const { roomId, isOwner } = getCurrentRoom()
 
   useEffect(() => {
     // Listen to the direct song-viewer broadcast channel for dynamic slides
@@ -18,10 +21,37 @@ function ViewPage() {
       }
     }
 
+    // If in a room and not the owner, subscribe to room state
+    let unsubscribeRoom: (() => void) | null = null
+    if (roomId && !isOwner) {
+      // Get initial room state
+      getRoomState(roomId).then((state) => {
+        if (state) {
+          syncRoomStateToStore(state)
+        }
+      })
+
+      // Subscribe to room state updates
+      unsubscribeRoom = subscribeToRoomState(roomId, (state) => {
+        syncRoomStateToStore(state)
+      })
+    }
+
     return () => {
       channel.close()
+      if (unsubscribeRoom) {
+        unsubscribeRoom()
+      }
     }
-  }, [])
+  }, [roomId, isOwner])
+
+  // Sync room state to local store (this would need to be implemented)
+  const syncRoomStateToStore = (state: RoomState) => {
+    // This will sync the room state to the local presentation state
+    // For now, we'll just log it - the actual sync logic depends on how
+    // the presentation state is managed in ViewPage
+    console.log('Room state update:', state)
+  }
 
   return (
     <div className="flex h-screen w-screen bg-transparent items-end justify-center pb-[12vh] overflow-hidden select-none">
