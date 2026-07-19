@@ -121,6 +121,8 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
   try {
     const deviceId = getDeviceId()
     
+    console.log('Attempting to join room with password:', password)
+    
     // Find room by password
     const { data: room, error: roomError } = await supabase
       .from('presentation_rooms')
@@ -129,17 +131,29 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
       .eq('is_active', true)
       .single()
     
-    if (roomError || !room) {
-      console.error('Room not found:', roomError)
+    if (roomError) {
+      console.error('Room not found or error:', roomError)
       return null
     }
     
+    if (!room) {
+      console.error('No room found with password:', password)
+      return null
+    }
+    
+    console.log('Found room:', room.id)
+    
     // Register as participant
-    await supabase.from('room_participants').insert({
+    const { error: participantError } = await supabase.from('room_participants').insert({
       room_id: room.id,
       device_id: deviceId,
       device_type: deviceType
     })
+    
+    if (participantError) {
+      console.error('Error registering participant:', participantError)
+      // Continue anyway - participant registration failure shouldn't block joining
+    }
     
     // Store current room info in localStorage
     localStorage.setItem('worship_runtime_current_room_id', room.id)
@@ -147,6 +161,7 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
     localStorage.setItem('worship_runtime_is_room_owner', 'false')
     localStorage.setItem('worship_runtime_device_type', deviceType)
     
+    console.log('Successfully joined room:', room.id)
     return room
   } catch (error) {
     console.error('Error in joinRoom:', error)
