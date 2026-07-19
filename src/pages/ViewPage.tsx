@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getCurrentRoom, getRoomState, subscribeToRoomState } from '../services/RoomService'
 import type { RoomState } from '../services/RoomService'
+import { db } from '../db/Database'
+import type { SongDetail } from '../db/Database'
 
 function ViewPage() {
   const [currentSlide, setCurrentSlide] = useState<{ lines: string[] } | null>(null)
@@ -45,12 +47,34 @@ function ViewPage() {
     }
   }, [roomId, isOwner])
 
-  // Sync room state to local store (this would need to be implemented)
-  const syncRoomStateToStore = (state: RoomState) => {
-    // This will sync the room state to the local presentation state
-    // For now, we'll just log it - the actual sync logic depends on how
-    // the presentation state is managed in ViewPage
-    console.log('Room state update:', state)
+  // Sync room state to local store and display lyrics
+  const syncRoomStateToStore = async (state: RoomState) => {
+    if (!state.live_song_id) {
+      setCurrentSlide(null)
+      return
+    }
+
+    try {
+      // Fetch the song from local database
+      const song = await db.songs.get(state.live_song_id)
+      if (!song) return
+
+      // Get the current section based on section index
+      const sectionIndex = state.live_section_index || 0
+      
+      if (song.sections && song.sections[sectionIndex]) {
+        const section = song.sections[sectionIndex]
+        
+        // Extract lines from the section
+        const lines = section.lines.map(line => line.text)
+        
+        setCurrentSlide({
+          lines
+        })
+      }
+    } catch (error) {
+      console.error('Error syncing room state:', error)
+    }
   }
 
   return (
