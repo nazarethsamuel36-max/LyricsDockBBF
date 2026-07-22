@@ -15,6 +15,16 @@ function ViewPage() {
   const prevSlideKey = useRef<string>('')
   const joinedRef = useRef(false)
 
+  // ── Transparent background for OBS overlay ──────────────────────────────
+  useEffect(() => {
+    const els = [document.documentElement, document.body, document.getElementById('root')]
+    const prev = els.map(el => el?.style.background ?? '')
+    els.forEach(el => { if (el) el.style.background = 'transparent' })
+    return () => {
+      els.forEach((el, i) => { if (el) el.style.background = prev[i] })
+    }
+  }, [])
+
   // ── Helper: render a room state to actual slide lines ─────────────────────
   const renderRoomState = async (state: RoomState) => {
     if (!state.is_live_active || !state.live_song_id) {
@@ -25,7 +35,6 @@ function ViewPage() {
     try {
       const song = await getSongById(state.live_song_id)
       if (!song || !song.display) {
-        console.warn('[ViewPage] Song not found or no display content:', state.live_song_id)
         setCurrentSlide(null)
         return
       }
@@ -37,13 +46,9 @@ function ViewPage() {
       const slideIndex = state.live_slide_index ?? 0
 
       const section = presentation.sections[sectionIndex]
-      if (!section) {
-        setCurrentSlide(null)
-        return
-      }
+      const slide = section?.slides[slideIndex]
 
-      const slide = section.slides[slideIndex]
-      if (!slide) {
+      if (!section || !slide) {
         setCurrentSlide(null)
         return
       }
@@ -61,73 +66,57 @@ function ViewPage() {
     }
   }
 
+  // ── Connection setup ──────────────────────────────────────────────────────
   useEffect(() => {
-    // ── Check for ?room=PASSWORD query param (OBS / direct link mode) ────────
     const params = new URLSearchParams(window.location.search)
     const roomParam = params.get('room')
 
     const startRoomConnection = (roomId: string) => {
       setConnectionStatus('connecting')
-
       getRoomState(roomId).then((state) => {
-        if (state) {
-          setConnectionStatus('connected')
-          renderRoomState(state)
-        } else {
-          setConnectionStatus('error')
-        }
+        if (state) { setConnectionStatus('connected'); renderRoomState(state) }
+        else setConnectionStatus('error')
       })
-
       const unsub = subscribeToRoomState(roomId, (state) => {
         setConnectionStatus('connected')
         renderRoomState(state)
       })
-
       return unsub
     }
 
     let unsubscribeRoom: (() => void) | null = null
 
-    // Priority 1: ?room=PASSWORD param — auto-join silently (for OBS)
+    // Priority 1: ?room=PASSWORD — auto-join silently (OBS / direct link)
     if (roomParam && !joinedRef.current) {
       joinedRef.current = true
       setConnectionStatus('connecting')
-
       joinRoom(roomParam.toUpperCase()).then((room) => {
         if (room) {
-          const storedRoomId = room.id
-          unsubscribeRoom = startRoomConnection(storedRoomId)
+          unsubscribeRoom = startRoomConnection(room.id)
         } else {
-          console.error('[ViewPage] Failed to join room from URL param:', roomParam)
           setConnectionStatus('error')
         }
       })
-    }
-    // Priority 2: Already in a room (localStorage) — non-owner viewer
-    else {
+    } else {
+      // Priority 2: Already in a room via localStorage
       const { roomId, isOwner } = getCurrentRoom()
-
       if (roomId && !isOwner) {
         unsubscribeRoom = startRoomConnection(roomId)
       } else {
-        // Priority 3: BroadcastChannel — same-device tabs mode
+        // Priority 3: BroadcastChannel — same-device tabs
         setConnectionStatus('broadcast')
       }
     }
 
-    // ── BroadcastChannel: same-device/tab mode (always listen as fallback) ──
+    // BroadcastChannel always listens as same-device fallback
     const bc = new BroadcastChannel('song-viewer')
     bc.onmessage = (event) => {
       const message = event.data
       if (message.type === 'SELECT_BLOCK' && message.blockId === 'dynamic') {
-        // Only use BroadcastChannel if NOT in room mode
         if (connectionStatus !== 'connected') {
           setConnectionStatus('broadcast')
-          if (message.lines && message.lines.length > 0) {
-            setCurrentSlide({
-              lines: message.lines,
-              sectionTitle: message.title ?? ''
-            })
+          if (message.lines?.length > 0) {
+            setCurrentSlide({ lines: message.lines, sectionTitle: message.title ?? '' })
           } else {
             setCurrentSlide(null)
           }
@@ -141,44 +130,48 @@ function ViewPage() {
     }
   }, [])
 
-  const statusDot = connectionStatus === 'connected'
-    ? 'bg-green-400 animate-pulse'
-    : connectionStatus === 'broadcast'
-      ? 'bg-blue-400'
-      : connectionStatus === 'error'
-        ? 'bg-red-400'
-        : 'bg-yellow-400 animate-pulse'
+  // ── Status dot ───────────────────────────────────────────────────────────
+  const statusDot = {
+    connected: 'bg-green-400 animate-pulse',
+    broadcast: 'bg-blue-400',
+    error:     'bg-red-400',
+    connecting:'bg-yellow-400 animate-pulse',
+  }[connectionStatus]
 
-  const statusLabel = connectionStatus === 'connected'
-    ? 'ROOM'
-    : connectionStatus === 'broadcast'
-      ? 'LOCAL'
-      : connectionStatus === 'error'
-        ? 'ERR'
-        : '...'
+  const statusLabel = { connected: 'ROOM', broadcast: 'LOCAL', error: 'ERR', connecting: '...' }[connectionStatus]
 
   return (
     <div className="flex h-screen w-screen bg-transparent items-end justify-center pb-[12vh] overflow-hidden select-none">
-      {currentSlide ? (
+
+      {currentSlide && (
         <div
           key={currentSlide.lines.join('|')}
           className="text-center max-w-6xl px-12 animate-[fadeIn_0.3s_ease]"
         >
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
             {currentSlide.lines.map((line, index) => (
               <div
                 key={index}
-                className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-normal text-white drop-shadow-[0_3px_5px_rgba(0,0,0,0.9)] opacity-0 animate-[slideUp_0.35s_ease_forwards]"
-                style={{ animationDelay: `${index * 0.08}s` }}
+                className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-snug text-white opacity-0 animate-[slideUp_0.35s_ease_forwards]"
+                style={{
+                  animationDelay: `${index * 0.08}s`,
+                  // Layered shadow: crisp near-shadow + soft wide glow for pop on any background
+                  textShadow: `
+                    0 1px 3px rgba(0,0,0,0.95),
+                    0 3px 8px rgba(0,0,0,0.85),
+                    0 8px 24px rgba(0,0,0,0.70),
+                    0 0  40px rgba(0,0,0,0.50)
+                  `,
+                }}
               >
                 {line}
               </div>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* Tiny connection indicator — top-left, barely visible */}
+      {/* Tiny connection indicator */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-20 hover:opacity-70 transition-opacity">
         <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
         <span className="text-[10px] text-white font-mono">{statusLabel}</span>
@@ -187,11 +180,11 @@ function ViewPage() {
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
-          to { opacity: 1; }
+          to   { opacity: 1; }
         }
         @keyframes slideUp {
-          from { opacity: 0; transform: translateY(15px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0);   }
         }
       `}</style>
     </div>
