@@ -202,12 +202,25 @@ function PresentationPanel() {
     channel.close()
   }, [presentation, liveSongId, liveSectionIndex, liveSlideIndex, currentSongId, isLiveActive])
 
-  // ── Click makes slide Live ────────────────────────────────────────────────
+  // ── Click toggles slide Live / deselect ──────────────────────────────────
   const handleSlideClick = (sectionIndex: number, slideIndex: number) => {
+    const alreadyLive =
+      isLiveActive &&
+      currentSongId === liveSongId &&
+      sectionIndex === liveSectionIndex &&
+      slideIndex === liveSlideIndex
+
     setCurrentSectionIndex(sectionIndex)
     setCurrentSlideIndex(slideIndex)
-    setLiveSlide(currentSongId, sectionIndex, slideIndex)
-    setIsLiveActive(true) // Clicking explicitly makes it live
+
+    if (alreadyLive) {
+      // Click again on the live slide → clear screen
+      setIsLiveActive(false)
+    } else {
+      // Click a new (or inactive) slide → make it live
+      setLiveSlide(currentSongId, sectionIndex, slideIndex)
+      setIsLiveActive(true)
+    }
   }
 
   const isLastSlide =
