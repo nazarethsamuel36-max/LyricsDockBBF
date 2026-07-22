@@ -4,7 +4,7 @@ import { getCurrentRoom, leaveRoom, endRoom } from '../services/RoomService'
 
 function RoomManager() {
   const { roomId, password, isOwner } = getCurrentRoom()
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
   const [isLeaving, setIsLeaving] = useState(false)
   const [isEnding, setIsEnding] = useState(false)
 
@@ -14,17 +14,13 @@ function RoomManager() {
 
   const base = window.location.origin
   const joinUrl = `${base}/join/${password}`
+  // OBS URL: direct view with auto-join — no redirect, works in OBS browser source
+  const obsUrl = `${base}/view?room=${password}`
 
-  const handleCopyPassword = () => {
-    navigator.clipboard.writeText(password)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleCopyJoinUrl = () => {
-    navigator.clipboard.writeText(joinUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   const handleLeaveRoom = async () => {
@@ -50,11 +46,11 @@ function RoomManager() {
         </h3>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-          <span className="text-xs text-zinc-400">{password}</span>
+          <span className="text-xs text-zinc-400 font-mono tracking-widest">{password}</span>
         </div>
       </div>
 
-      {/* QR Code */}
+      {/* QR Code — points to join URL for phones */}
       <div className="flex justify-center mb-4">
         <div className="bg-white p-3 rounded-lg">
           <QRCodeSVG
@@ -66,20 +62,42 @@ function RoomManager() {
         </div>
       </div>
 
+      {/* OBS Link — highlighted prominently */}
+      <div className="mb-3 p-3 bg-zinc-900 rounded-lg border border-zinc-700/60">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          {/* OBS icon-ish dot */}
+          <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">OBS Browser Source</span>
+        </div>
+        <code className="block text-[10px] text-zinc-500 break-all mb-2 leading-snug">
+          {obsUrl}
+        </code>
+        <button
+          onClick={() => handleCopy(obsUrl, 'obs')}
+          className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            copied === 'obs'
+              ? 'bg-purple-700 text-white'
+              : 'bg-purple-600 hover:bg-purple-500 text-white'
+          }`}
+        >
+          {copied === 'obs' ? '✓ Copied!' : 'Copy OBS Link'}
+        </button>
+      </div>
+
       {/* Actions */}
       <div className="space-y-2">
         <button
-          onClick={handleCopyPassword}
+          onClick={() => handleCopy(password, 'password')}
           className="w-full px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium transition-colors"
         >
-          {copied ? 'Password Copied!' : 'Copy Password'}
+          {copied === 'password' ? '✓ Password Copied!' : 'Copy Password'}
         </button>
-        
+
         <button
-          onClick={handleCopyJoinUrl}
+          onClick={() => handleCopy(joinUrl, 'join')}
           className="w-full px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium transition-colors"
         >
-          {copied ? 'Link Copied!' : 'Copy Join Link'}
+          {copied === 'join' ? '✓ Link Copied!' : 'Copy Join Link'}
         </button>
 
         {isOwner ? (
