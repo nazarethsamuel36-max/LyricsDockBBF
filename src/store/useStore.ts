@@ -1,10 +1,18 @@
 import { create } from 'zustand'
 import type { SetlistItem } from '../db/Database'
 import { getCurrentRoom, updateRoomState } from '../services/RoomService'
+import { presentationRealtime } from '../services/PresentationRealtimeService'
 
 // BroadcastChannel for cross-tab synchronization
 const channel = new BroadcastChannel('worship-runtime-state')
 let isBroadcasting = false // Prevent infinite loops
+
+function sendRealtimeCommand(command: Parameters<typeof presentationRealtime.send>[0]) {
+  const { roomId } = getCurrentRoom()
+  if (!roomId) return
+  presentationRealtime.connect(roomId)
+  void presentationRealtime.send(command)
+}
 
 interface StoreState {
   selectedLanguage: string;
@@ -53,6 +61,8 @@ export const useStore = create<StoreState>((set) => ({
   currentSongId: null,
   setCurrentSongId: (id) => {
     set({ currentSongId: id })
+
+    if (id !== null) sendRealtimeCommand({ type: 'SHOW_SONG', songId: id })
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()
@@ -126,6 +136,10 @@ export const useStore = create<StoreState>((set) => ({
   liveSlideIndex: 0,
   setLiveSlide: (songId, sectionIndex, slideIndex) => {
     set({ liveSongId: songId, liveSectionIndex: sectionIndex, liveSlideIndex: slideIndex })
+
+    if (songId !== null) {
+      sendRealtimeCommand({ type: 'SHOW_SLIDE', songId, sectionIndex, slideIndex })
+    }
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()
@@ -144,6 +158,8 @@ export const useStore = create<StoreState>((set) => ({
   isLiveActive: false,
   setIsLiveActive: (active) => {
     set({ isLiveActive: active })
+
+    sendRealtimeCommand({ type: 'SET_LIVE', live: active })
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()

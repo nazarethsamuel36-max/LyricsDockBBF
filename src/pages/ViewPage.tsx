@@ -3,6 +3,8 @@ import { getCurrentRoom, getRoomState, subscribeToRoomState, joinRoom } from '..
 import type { RoomState } from '../services/RoomService'
 import { getSongById } from '../services/DataService'
 import { PresentationRenderer } from '../presentation/PresentationRenderer'
+import { presentationRealtime } from '../services/PresentationRealtimeService'
+import type { PresentationCommand } from '../types/PresentationCommand'
 
 interface CurrentSlide {
   lines: string[]
@@ -14,6 +16,8 @@ function ViewPage() {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'broadcast' | 'error'>('connecting')
   const prevSlideKey = useRef<string>('')
   const joinedRef = useRef(false)
+  const presentationRef = useRef<{ songId: number; density: 4 | 2; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
+  const loadRequestRef = useRef(0)
 
   // ── Transparent background for OBS overlay ──────────────────────────────
   useEffect(() => {
@@ -25,7 +29,35 @@ function ViewPage() {
     }
   }, [])
 
-  // ── Helper: render a room state to actual slide lines ─────────────────────
+  // Load and render only when the song or density changes. Slide changes are RAM lookups.
+  const ensurePresentation = async (songId: number, density: 4 | 2) => {
+    const cached = presentationRef.current
+    if (cached?.songId === songId && cached.density === density) return cached.presentation
+
+    const requestId = ++loadRequestRef.current
+    const song = await getSongById(songId)
+    if (requestId !== loadRequestRef.current || !song?.display) return null
+
+    const presentation = PresentationRenderer.render(song.display, density)
+    presentationRef.current = { songId, density, presentation }
+    return presentation
+  }
+
+  const showSlide = (presentation: ReturnType<typeof PresentationRenderer.render>, sectionIndex: number, slideIndex: number) => {
+    const section = presentation.sections[sectionIndex]
+    const slide = section?.slides[slideIndex]
+    if (!section || !slide) {
+      setCurrentSlide(null)
+      return
+    }
+
+    const key = `${presentationRef.current?.songId}-${sectionIndex}-${slideIndex}`
+    if (key === prevSlideKey.current) return
+    prevSlideKey.current = key
+    setCurrentSlide({ lines: slide.lines.map(line => line.text), sectionTitle: section.title })
+  }
+
+  // Room-state remains the recovery/initial-state path; cached presentations make slide changes local.
   const renderRoomState = async (state: RoomState) => {
     if (!state.is_live_active || !state.live_song_id) {
       setCurrentSlide(null)
@@ -33,37 +65,32 @@ function ViewPage() {
     }
 
     try {
-      const song = await getSongById(state.live_song_id)
-      if (!song || !song.display) {
-        setCurrentSlide(null)
-        return
-      }
-
       const density = (state.presentation_density === 2 ? 2 : 4) as 4 | 2
-      const presentation = PresentationRenderer.render(song.display, density)
-
-      const sectionIndex = state.live_section_index ?? 0
-      const slideIndex = state.live_slide_index ?? 0
-
-      const section = presentation.sections[sectionIndex]
-      const slide = section?.slides[slideIndex]
-
-      if (!section || !slide) {
-        setCurrentSlide(null)
-        return
-      }
-
-      const key = `${state.live_song_id}-${sectionIndex}-${slideIndex}`
-      if (key === prevSlideKey.current) return
-      prevSlideKey.current = key
-
-      setCurrentSlide({
-        lines: slide.lines.map(l => l.text),
-        sectionTitle: section.title
-      })
+      const presentation = await ensurePresentation(state.live_song_id, density)
+      if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0)
     } catch (error) {
       console.error('[ViewPage] Error rendering room state:', error)
     }
+  }
+
+  const handleRealtimeCommand = async (command: PresentationCommand) => {
+    setConnectionStatus('connected')
+
+    if (command.type === 'SET_LIVE') {
+      if (!command.live) setCurrentSlide(null)
+      return
+    }
+
+    const density = presentationRef.current?.density ?? 4
+    const presentation = await ensurePresentation(command.songId, density)
+    if (!presentation) return
+
+    if (command.type === 'SHOW_SONG') {
+      setCurrentSlide(null)
+      return
+    }
+
+    showSlide(presentation, command.sectionIndex, command.slideIndex)
   }
 
   // ── Connection setup ──────────────────────────────────────────────────────
@@ -92,6 +119,8 @@ function ViewPage() {
       setConnectionStatus('connecting')
       joinRoom(roomParam.toUpperCase()).then((room) => {
         if (room) {
+          presentationRealtime.connect(room.id)
+          presentationRealtime.subscribe(handleRealtimeCommand)
           unsubscribeRoom = startRoomConnection(room.id)
         } else {
           setConnectionStatus('error')
@@ -101,6 +130,8 @@ function ViewPage() {
       // Priority 2: Already in a room via localStorage
       const { roomId, isOwner } = getCurrentRoom()
       if (roomId && !isOwner) {
+        presentationRealtime.connect(roomId)
+        presentationRealtime.subscribe(handleRealtimeCommand)
         unsubscribeRoom = startRoomConnection(roomId)
       } else {
         // Priority 3: BroadcastChannel — same-device tabs
@@ -126,6 +157,7 @@ function ViewPage() {
 
     return () => {
       bc.close()
+      presentationRealtime.disconnect()
       if (unsubscribeRoom) unsubscribeRoom()
     }
   }, [])
