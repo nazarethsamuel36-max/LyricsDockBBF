@@ -178,15 +178,14 @@ function ViewPage() {
       {currentSlide && (
         <div
           key={currentSlide.lines.join('|')}
-          className="text-center max-w-6xl px-12 animate-[fadeIn_0.3s_ease]"
+          className="text-center max-w-6xl px-12 animate-[fadeIn_0.2s_ease-out]"
         >
           <div className="flex flex-col gap-4">
             {currentSlide.lines.map((line, index) => (
               <div
                 key={index}
-                className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-snug text-white opacity-0 animate-[slideUp_0.35s_ease_forwards]"
+                className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-snug text-white"
                 style={{
-                  animationDelay: `${index * 0.08}s`,
                   // Layered shadow: crisp near-shadow + soft wide glow for pop on any background
                   textShadow: `
                     0 1px 3px rgba(0,0,0,0.95),
@@ -213,10 +212,6 @@ function ViewPage() {
         @keyframes fadeIn {
           from { opacity: 0; }
           to   { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0);   }
         }
       `}</style>
     </div>
