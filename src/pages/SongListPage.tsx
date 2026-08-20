@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import SongLibrary from '../components/SongLibrary'
 import BottomNavigation from '../components/BottomNavigation'
-import RoomManager from '../components/RoomManager'
 
 function SongListPage() {
   const navigate = useNavigate()
@@ -26,11 +25,6 @@ function SongListPage() {
 
         {/* ── Bottom Sheet ── thumb-reachable controls ── */}
         <div className="flex-shrink-0 bg-[#121214] border-t border-zinc-800/80 shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
-
-          {/* ── Room Manager ── */}
-          <div className="px-4 pt-3">
-            <RoomManager />
-          </div>
 
           {/* ── Region 2: Search ── */}
           <div className="px-4 py-3">

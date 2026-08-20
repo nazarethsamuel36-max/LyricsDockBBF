@@ -5,6 +5,7 @@ import SongListPage from './pages/SongListPage'
 import SetlistPage from './pages/SetlistPage'
 import SongPresenterPage from './pages/SongPresenterPage'
 import ViewPage from './pages/ViewPage'
+import RoomInfoPage from './pages/RoomInfoPage'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/setlist" element={<SetlistPage />} />
         <Route path="/presenter" element={<SongPresenterPage />} />
         <Route path="/view" element={<ViewPage />} />
+        <Route path="/room-info" element={<RoomInfoPage />} />
       </Routes>
     </BrowserRouter>
   )
