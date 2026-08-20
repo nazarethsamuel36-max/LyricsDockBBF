@@ -184,7 +184,7 @@ function ViewPage() {
             {currentSlide.lines.map((line, index) => (
               <div
                 key={index}
-                className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-snug text-white"
+                className="presentation-lyrics text-[54px] font-semibold leading-snug text-[#fffde7]"
                 style={{
                   // Layered shadow: crisp near-shadow + soft wide glow for pop on any background
                   textShadow: `
