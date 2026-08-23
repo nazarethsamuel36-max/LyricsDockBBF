@@ -115,7 +115,7 @@ export const useStore = create<StoreState>((set) => ({
       channel.postMessage({ type: 'resetPresentation' })
     }
   },
-  presentationDensity: 4,
+  presentationDensity: 2,
   setPresentationDensity: (density) => {
     set({ presentationDensity: density })
     

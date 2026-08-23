@@ -8,8 +8,7 @@ function PresentationPanel() {
   const currentSongId = useStore((s) => s.currentSongId)
   const currentSectionIndex = useStore((s) => s.currentSectionIndex)
   const currentSlideIndex = useStore((s) => s.currentSlideIndex)
-  const presentationDensity = useStore((s) => s.presentationDensity)
-  const setPresentationDensity = useStore((s) => s.setPresentationDensity)
+  const presentationDensity = 2
   const setCurrentSectionIndex = useStore((s) => s.setCurrentSectionIndex)
   const setCurrentSlideIndex = useStore((s) => s.setCurrentSlideIndex)
   const resetPresentation = useStore((s) => s.resetPresentation)
@@ -243,23 +242,7 @@ function PresentationPanel() {
           )}
         </div>
 
-        {/* Density toggle */}
-        <div className="flex-shrink-0 flex items-center gap-1.5 ml-4">
-          <span className="text-[11px] uppercase tracking-wider text-zinc-500">Lines</span>
-          {([4, 2] as (4 | 2)[]).map(d => (
-            <button
-              key={d}
-              onClick={() => setPresentationDensity(d)}
-              className={`px-2 py-0.5 text-xs font-mono rounded transition-colors ${
-                presentationDensity === d
-                  ? 'bg-zinc-700 text-white font-bold'
-                  : 'bg-[#1a1a1e] text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <span className="flex-shrink-0 ml-4 text-[11px] uppercase tracking-wider text-zinc-500">2 lines</span>
       </div>
 
       {/* ── Content area ── */}

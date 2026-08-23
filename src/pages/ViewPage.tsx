@@ -59,14 +59,20 @@ function ViewPage() {
 
   // Room-state remains the recovery/initial-state path; cached presentations make slide changes local.
   const renderRoomState = async (state: RoomState) => {
-    if (!state.is_live_active || !state.live_song_id) {
+    if (!state.live_song_id) {
+      setCurrentSlide(null)
+      return
+    }
+
+    const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
+    // Keep a newly selected slide visible while the separate live flag update arrives.
+    if (!state.is_live_active && stateKey === prevSlideKey.current) {
       setCurrentSlide(null)
       return
     }
 
     try {
-      const density = (state.presentation_density === 2 ? 2 : 4) as 4 | 2
-      const presentation = await ensurePresentation(state.live_song_id, density)
+      const presentation = await ensurePresentation(state.live_song_id, 2)
       if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0)
     } catch (error) {
       console.error('[ViewPage] Error rendering room state:', error)
@@ -81,8 +87,7 @@ function ViewPage() {
       return
     }
 
-    const density = presentationRef.current?.density ?? 4
-    const presentation = await ensurePresentation(command.songId, density)
+    const presentation = await ensurePresentation(command.songId, 2)
     if (!presentation) return
 
     if (command.type === 'SHOW_SONG') {
@@ -178,7 +183,7 @@ function ViewPage() {
       {currentSlide && (
         <div
           key={currentSlide.lines.join('|')}
-          className="text-center max-w-6xl px-12 animate-[fadeIn_0.2s_ease-out]"
+          className="text-center max-w-6xl px-12"
         >
           <div className="flex flex-col gap-4">
             {currentSlide.lines.map((line, index) => (
@@ -208,12 +213,6 @@ function ViewPage() {
         <span className="text-[10px] text-white font-mono">{statusLabel}</span>
       </div>
 
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }
