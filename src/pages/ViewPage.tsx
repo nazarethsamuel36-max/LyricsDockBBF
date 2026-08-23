@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { getCurrentRoom, getRoomState, subscribeToRoomState, joinRoom } from '../services/RoomService'
 import type { RoomState } from '../services/RoomService'
 import { getSongById } from '../services/DataService'
+import { db } from '../db/Database'
 import { PresentationRenderer } from '../presentation/PresentationRenderer'
 import { presentationRealtime } from '../services/PresentationRealtimeService'
 import type { PresentationCommand } from '../types/PresentationCommand'
@@ -11,8 +12,45 @@ interface CurrentSlide {
   sectionTitle: string
 }
 
+type DiagnosticStatus = 'LOADING' | 'READY' | 'EMPTY' | 'ERROR'
+
+interface DiagnosticState {
+  controllerSongId: number | null
+  controllerSongTitle: string | null
+  requestedSongId: number | null
+  requestedSongTitle: string | null
+  loadedSongId: number | null
+  loadedSongTitle: string | null
+  indexedDb: 'FOUND' | 'MISSING' | 'UNKNOWN'
+  status: DiagnosticStatus
+  sectionIndex: number | null
+  slideIndex: number | null
+  requestedSlideExists: boolean | null
+  songMatch: boolean | null
+  slideExists: boolean | null
+  displayed: 'VISIBLE' | 'BLANK' | 'INVALID'
+  mismatches: string[]
+}
+
 function ViewPage() {
   const [currentSlide, setCurrentSlide] = useState<CurrentSlide | null>(null)
+  const [diagnostic, setDiagnostic] = useState<DiagnosticState>({
+    controllerSongId: null,
+    controllerSongTitle: null,
+    requestedSongId: null,
+    requestedSongTitle: null,
+    loadedSongId: null,
+    loadedSongTitle: null,
+    indexedDb: 'UNKNOWN',
+    status: 'EMPTY',
+    sectionIndex: null,
+    slideIndex: null,
+    requestedSlideExists: null,
+    songMatch: null,
+    slideExists: null,
+    displayed: 'BLANK',
+    mismatches: [],
+  })
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'broadcast' | 'error'>('connecting')
   const prevSlideKey = useRef<string>('')
   const joinedRef = useRef(false)
@@ -31,22 +69,62 @@ function ViewPage() {
 
   // Load and render only when the song or density changes. Slide changes are RAM lookups.
   const ensurePresentation = async (songId: number, density: 4 | 2) => {
+    setDiagnostic(previous => ({
+      ...previous,
+      requestedSongId: songId,
+      status: 'LOADING',
+    }))
     const cached = presentationRef.current
-    if (cached?.songId === songId && cached.density === density) return cached.presentation
+    if (cached?.songId === songId && cached.density === density) {
+      setDiagnostic(previous => ({
+        ...previous,
+        loadedSongId: cached.songId,
+        status: 'READY',
+        songMatch: previous.controllerSongId === null || previous.controllerSongId === cached.songId,
+      }))
+      return cached.presentation
+    }
 
     const requestId = ++loadRequestRef.current
-    const song = await getSongById(songId)
-    if (requestId !== loadRequestRef.current || !song?.display) return null
+    const localSong = await db.songs.get(songId)
+    setDiagnostic(previous => ({ ...previous, indexedDb: localSong ? 'FOUND' : 'MISSING' }))
+    try {
+      const song = await getSongById(songId)
+      if (requestId !== loadRequestRef.current) return null
+      if (!song?.display) {
+        setDiagnostic(previous => ({ ...previous, status: 'EMPTY', loadedSongId: null, loadedSongTitle: null }))
+        return null
+      }
 
-    const presentation = PresentationRenderer.render(song.display, density)
-    presentationRef.current = { songId, density, presentation }
-    return presentation
+      const presentation = PresentationRenderer.render(song.display, density)
+      presentationRef.current = { songId, density, presentation }
+      setDiagnostic(previous => ({
+        ...previous,
+        requestedSongTitle: previous.requestedSongId === songId ? song.title : previous.requestedSongTitle,
+        loadedSongId: songId,
+        loadedSongTitle: song.title,
+        status: 'READY',
+        songMatch: previous.controllerSongId === null || previous.controllerSongId === songId,
+      }))
+      return presentation
+    } catch (error) {
+      setDiagnostic(previous => ({ ...previous, status: 'ERROR' }))
+      throw error
+    }
   }
 
   const showSlide = (presentation: ReturnType<typeof PresentationRenderer.render>, sectionIndex: number, slideIndex: number) => {
     const section = presentation.sections[sectionIndex]
     const slide = section?.slides[slideIndex]
     if (!section || !slide) {
+      setDiagnostic(previous => ({
+        ...previous,
+        sectionIndex,
+        slideIndex,
+        requestedSlideExists: false,
+        slideExists: false,
+        displayed: 'INVALID',
+      }))
       setCurrentSlide(null)
       return
     }
@@ -54,15 +132,50 @@ function ViewPage() {
     const key = `${presentationRef.current?.songId}-${sectionIndex}-${slideIndex}`
     if (key === prevSlideKey.current) return
     prevSlideKey.current = key
+    setDiagnostic(previous => ({
+      ...previous,
+      sectionIndex,
+      slideIndex,
+      requestedSlideExists: true,
+      slideExists: true,
+      displayed: 'VISIBLE',
+    }))
     setCurrentSlide({ lines: slide.lines.map(line => line.text), sectionTitle: section.title })
   }
 
   // Room-state remains the recovery/initial-state path; cached presentations make slide changes local.
   const renderRoomState = async (state: RoomState) => {
+    const controllerSong = state.current_song_id ? await db.songIndex.get(state.current_song_id) : null
+    setDiagnostic(previous => ({
+      ...previous,
+      controllerSongId: state.current_song_id,
+      controllerSongTitle: controllerSong?.title ?? null,
+      requestedSongId: state.current_song_id,
+      requestedSongTitle: controllerSong?.title ?? null,
+    }))
+
     if (!state.live_song_id) {
+      setDiagnostic(previous => ({
+        ...previous,
+        requestedSongId: state.current_song_id,
+        requestedSongTitle: controllerSong?.title ?? null,
+        controllerSongId: state.current_song_id,
+        loadedSongId: null,
+        loadedSongTitle: null,
+        status: 'EMPTY',
+        displayed: 'BLANK',
+      }))
       setCurrentSlide(null)
       return
     }
+
+    setDiagnostic(previous => ({
+      ...previous,
+      controllerSongId: state.current_song_id,
+      sectionIndex: state.live_section_index,
+      slideIndex: state.live_slide_index,
+      songMatch: previous.loadedSongId === null ? null : previous.loadedSongId === state.live_song_id,
+    }))
 
     const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
     // Keep a newly selected slide visible while the separate live flag update arrives.
@@ -87,11 +200,15 @@ function ViewPage() {
       presentationRef.current = null
       prevSlideKey.current = ''
       setCurrentSlide(null)
+      setDiagnostic(previous => ({ ...previous, requestedSongId: null, requestedSongTitle: null, loadedSongId: null, loadedSongTitle: null, status: 'EMPTY', displayed: 'BLANK' }))
       return
     }
 
     if (command.type === 'SET_LIVE') {
-      if (!command.live) setCurrentSlide(null)
+      if (!command.live) {
+        setCurrentSlide(null)
+        setDiagnostic(previous => ({ ...previous, status: previous.loadedSongId ? 'READY' : 'EMPTY', displayed: 'BLANK' }))
+      }
       return
     }
 
@@ -99,12 +216,22 @@ function ViewPage() {
       loadRequestRef.current += 1
       presentationRef.current = null
       prevSlideKey.current = ''
+      setDiagnostic(previous => ({ ...previous, requestedSongId: command.songId, requestedSlideExists: null, slideExists: null }))
       await ensurePresentation(command.songId, 2)
       return
     }
 
     const presentation = await ensurePresentation(command.songId, 2)
     if (!presentation) return
+
+    setDiagnostic(previous => ({
+      ...previous,
+      requestedSongId: command.songId,
+      sectionIndex: command.sectionIndex,
+      slideIndex: command.slideIndex,
+      requestedSlideExists: Boolean(presentation.sections[command.sectionIndex]?.slides[command.slideIndex]),
+      songMatch: previous.loadedSongId === command.songId,
+    }))
 
     showSlide(presentation, command.sectionIndex, command.slideIndex)
   }
@@ -187,9 +314,29 @@ function ViewPage() {
   }[connectionStatus]
 
   const statusLabel = { connected: 'ROOM', broadcast: 'LOCAL', error: 'ERR', connecting: '...' }[connectionStatus]
+  const songMatch = diagnostic.songMatch === null ? 'UNKNOWN' : diagnostic.songMatch ? 'PASS' : 'FAIL'
+  const slideExists = diagnostic.slideExists === null ? 'UNKNOWN' : diagnostic.slideExists ? 'PASS' : 'FAIL'
+  const mismatches = [
+    diagnostic.controllerSongId !== null && diagnostic.loadedSongId !== null && diagnostic.controllerSongId !== diagnostic.loadedSongId
+      ? `Controller song ${diagnostic.controllerSongId} != loaded song ${diagnostic.loadedSongId}`
+      : null,
+    diagnostic.requestedSongId !== null && diagnostic.loadedSongId !== null && diagnostic.requestedSongId !== diagnostic.loadedSongId
+      ? `Requested song ${diagnostic.requestedSongId} != loaded song ${diagnostic.loadedSongId}`
+      : null,
+    diagnostic.requestedSlideExists === false ? 'Requested section/slide does not exist locally' : null,
+    diagnostic.displayed === 'INVALID' ? 'Requested slide is invalid' : null,
+    diagnostic.status === 'READY' && diagnostic.requestedSongId !== null && diagnostic.displayed === 'BLANK'
+      ? 'Song is ready but nothing is displayed'
+      : null,
+  ].filter((message): message is string => Boolean(message))
+  const mismatchKey = mismatches.join('|')
+
+  useEffect(() => {
+    if (mismatches.length > 0) console.warn('[PresentationSyncDiagnostic]', mismatches)
+  }, [mismatchKey])
 
   return (
-    <div className="flex h-screen w-screen bg-transparent items-end justify-center pb-[12vh] overflow-hidden select-none">
+    <div className="flex h-screen w-screen flex-col bg-transparent items-center justify-end pb-[6vh] overflow-hidden select-none">
 
       {currentSlide && (
         <div
@@ -217,6 +364,24 @@ function ViewPage() {
           </div>
         </div>
       )}
+
+      <div className="mt-4 w-[min(92vw,760px)] max-h-[30vh] overflow-y-auto rounded border border-yellow-300/40 bg-black/80 px-3 py-2 text-left font-mono text-[11px] leading-relaxed text-yellow-100/90">
+        <div className="mb-1 font-bold text-yellow-200">TEMP PRESENTATION SYNC DIAGNOSTIC</div>
+        <div>Controller Selected Song: {diagnostic.controllerSongId ?? 'NONE'} / {diagnostic.controllerSongTitle ?? 'NONE'}</div>
+        <div>Requested Song: {diagnostic.requestedSongId ?? 'NONE'} / {diagnostic.requestedSongTitle ?? 'NONE'}</div>
+        <div>Presentation Loaded Song: {diagnostic.loadedSongId ?? 'NONE'} / {diagnostic.loadedSongTitle ?? 'NONE'}</div>
+        <div>IndexedDB: {diagnostic.indexedDb}</div>
+        <div>Status: {diagnostic.status}</div>
+        <div>Current section: {diagnostic.sectionIndex ?? 'NONE'} | Current slide: {diagnostic.slideIndex ?? 'NONE'}</div>
+        <div>Requested slide exists locally: {diagnostic.requestedSlideExists === null ? 'UNKNOWN' : diagnostic.requestedSlideExists ? 'YES' : 'NO'}</div>
+        <div>Song Match: {songMatch} | Slide Exists: {slideExists}</div>
+        <div>Displayed: {diagnostic.displayed}</div>
+        {mismatches.length > 0 && (
+          <div className="mt-1 text-red-200">
+            {mismatches.map(message => <div key={message}>Mismatch: {message}</div>)}
+          </div>
+        )}
+      </div>
 
       {/* Tiny connection indicator */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-20 hover:opacity-70 transition-opacity">
