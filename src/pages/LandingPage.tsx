@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { createRoom, joinRoom } from '../services/RoomService'
+import { batchDownloadSongs } from '../services/DataService'
 
 function LandingPage() {
   const navigate = useNavigate()
@@ -10,6 +11,9 @@ function LandingPage() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false)
   const [isJoiningRoom, setIsJoiningRoom] = useState(false)
   const [roomError, setRoomError] = useState<string | null>(null)
+  const [isDownloadingSongs, setIsDownloadingSongs] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null)
 
   const base = window.location.origin
   const controllerUrl = `${base}/controller`
@@ -56,6 +60,25 @@ function LandingPage() {
     }
     
     setIsJoiningRoom(false)
+  }
+
+  const handleDownloadSongs = async () => {
+    setIsDownloadingSongs(true)
+    setDownloadProgress(0)
+    setDownloadMessage('Preparing download...')
+
+    const result = await batchDownloadSongs((percent, message) => {
+      setDownloadProgress(percent)
+      setDownloadMessage(message)
+    })
+
+    if (result === 'completed' || result === 'skipped') {
+      setDownloadProgress(100)
+      setDownloadMessage(result === 'skipped' ? 'Songs are already ready in IndexedDB.' : 'All songs are ready in IndexedDB.')
+    } else {
+      setDownloadMessage('Download failed. Check your internet connection and try again.')
+    }
+    setIsDownloadingSongs(false)
   }
 
   return (
@@ -117,6 +140,33 @@ function LandingPage() {
                   {copied === 'view' ? 'Copied!' : 'Copy Link'}
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Offline Song Download */}
+          <div className="w-full mb-8">
+            <h2 className="text-lg font-medium text-zinc-200 mb-3">
+              Offline Songs
+            </h2>
+            <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
+              <p className="text-xs text-zinc-500 mb-3">
+                Download songs to this device so presentation loading can use IndexedDB.
+              </p>
+              <button
+                onClick={handleDownloadSongs}
+                disabled={isDownloadingSongs}
+                className="w-full px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {isDownloadingSongs ? `Downloading ${downloadProgress}%...` : 'Download Songs'}
+              </button>
+              {downloadMessage && (
+                <div className="mt-3">
+                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${downloadProgress}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-400">{downloadMessage}</p>
+                </div>
+              )}
             </div>
           </div>
 
