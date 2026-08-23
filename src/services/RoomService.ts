@@ -44,7 +44,7 @@ function generateRoomPassword(): string {
 }
 
 // Generate a unique device ID for this browser
-function getDeviceId(): string {
+export function getDeviceId(): string {
   let deviceId = localStorage.getItem('worship_runtime_device_id')
   if (!deviceId) {
     deviceId = crypto.randomUUID()
@@ -108,6 +108,7 @@ export async function createRoom(): Promise<{ room: PresentationRoom; password: 
     localStorage.setItem('worship_runtime_current_room_id', room.id)
     localStorage.setItem('worship_runtime_current_room_password', password)
     localStorage.setItem('worship_runtime_is_room_owner', 'true')
+    localStorage.setItem('worship_runtime_room_owner_id', room.owner_id)
     
     return { room, password }
   } catch (error) {
@@ -160,6 +161,7 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
     localStorage.setItem('worship_runtime_current_room_password', password)
     localStorage.setItem('worship_runtime_is_room_owner', 'false')
     localStorage.setItem('worship_runtime_device_type', deviceType)
+    localStorage.setItem('worship_runtime_room_owner_id', room.owner_id)
     
     console.log('Successfully joined room:', room.id)
     return room
@@ -189,18 +191,20 @@ export async function leaveRoom(): Promise<void> {
     localStorage.removeItem('worship_runtime_current_room_password')
     localStorage.removeItem('worship_runtime_is_room_owner')
     localStorage.removeItem('worship_runtime_device_type')
+    localStorage.removeItem('worship_runtime_room_owner_id')
   } catch (error) {
     console.error('Error in leaveRoom:', error)
   }
 }
 
 // Get current room info from localStorage
-export function getCurrentRoom(): { roomId: string | null; password: string | null; isOwner: boolean; deviceType: string | null } {
+export function getCurrentRoom(): { roomId: string | null; password: string | null; isOwner: boolean; deviceType: string | null; ownerDeviceId: string | null } {
   return {
     roomId: localStorage.getItem('worship_runtime_current_room_id'),
     password: localStorage.getItem('worship_runtime_current_room_password'),
     isOwner: localStorage.getItem('worship_runtime_is_room_owner') === 'true',
-    deviceType: localStorage.getItem('worship_runtime_device_type')
+    deviceType: localStorage.getItem('worship_runtime_device_type'),
+    ownerDeviceId: localStorage.getItem('worship_runtime_room_owner_id')
   }
 }
 

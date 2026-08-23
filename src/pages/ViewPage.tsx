@@ -262,7 +262,7 @@ function ViewPage() {
       setConnectionStatus('connecting')
       joinRoom(roomParam.toUpperCase()).then((room) => {
         if (room) {
-          presentationRealtime.connect(room.id)
+          presentationRealtime.connect(room.id, room.owner_id)
           presentationRealtime.subscribe(handleRealtimeCommand)
           unsubscribeRoom = startRoomConnection(room.id)
         } else {
@@ -273,7 +273,7 @@ function ViewPage() {
       // Priority 2: Already in a room via localStorage
       const { roomId, isOwner } = getCurrentRoom()
       if (roomId && !isOwner) {
-        presentationRealtime.connect(roomId)
+        presentationRealtime.connect(roomId, getCurrentRoom().ownerDeviceId)
         presentationRealtime.subscribe(handleRealtimeCommand)
         unsubscribeRoom = startRoomConnection(roomId)
       } else {
@@ -283,10 +283,16 @@ function ViewPage() {
     }
 
     // BroadcastChannel always listens as same-device fallback
+    const roomIdentity = getCurrentRoom()
     const bc = new BroadcastChannel('song-viewer')
     bc.onmessage = (event) => {
       const message = event.data
       if (message.type === 'SELECT_BLOCK' && message.blockId === 'dynamic') {
+        if (
+          !roomIdentity.roomId ||
+          message.roomId !== roomIdentity.roomId ||
+          message.senderDeviceId !== roomIdentity.ownerDeviceId
+        ) return
         if (connectionStatus !== 'connected') {
           setConnectionStatus('broadcast')
           if (message.lines?.length > 0) {

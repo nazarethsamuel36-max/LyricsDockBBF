@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { PresentationRenderer } from '../presentation/PresentationRenderer'
 import type { Presentation } from '../presentation/PresentationTypes'
 import { getSongById } from '../services/DataService'
+import { getCurrentRoom, getDeviceId } from '../services/RoomService'
 
 function PresentationPanel() {
   const currentSongId = useStore((s) => s.currentSongId)
@@ -183,6 +184,8 @@ function PresentationPanel() {
         channel.postMessage({
           type: 'SELECT_BLOCK',
           blockId: 'dynamic',
+          roomId: getCurrentRoom().roomId,
+          senderDeviceId: getDeviceId(),
           title: section.title,
           lines: slide.lines.map(l => l.text)
         })
@@ -190,6 +193,8 @@ function PresentationPanel() {
         channel.postMessage({
           type: 'SELECT_BLOCK',
           blockId: 'dynamic',
+          roomId: getCurrentRoom().roomId,
+          senderDeviceId: getDeviceId(),
           title: '',
           lines: []
         })
@@ -198,6 +203,8 @@ function PresentationPanel() {
       channel.postMessage({
         type: 'SELECT_BLOCK',
         blockId: 'dynamic',
+        roomId: getCurrentRoom().roomId,
+        senderDeviceId: getDeviceId(),
         title: '',
         lines: []
       })
