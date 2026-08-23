@@ -70,7 +70,7 @@ export const useStore = create<StoreState>((set) => ({
       isLiveActive: false,
     })
 
-    if (id !== null) sendRealtimeCommand({ type: 'SHOW_SONG', songId: id })
+    sendRealtimeCommand(id === null ? { type: 'CLEAR_SONG' } : { type: 'LOAD_SONG', songId: id })
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()

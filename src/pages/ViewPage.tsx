@@ -82,18 +82,29 @@ function ViewPage() {
   const handleRealtimeCommand = async (command: PresentationCommand) => {
     setConnectionStatus('connected')
 
+    if (command.type === 'CLEAR_SONG') {
+      loadRequestRef.current += 1
+      presentationRef.current = null
+      prevSlideKey.current = ''
+      setCurrentSlide(null)
+      return
+    }
+
     if (command.type === 'SET_LIVE') {
       if (!command.live) setCurrentSlide(null)
       return
     }
 
-    const presentation = await ensurePresentation(command.songId, 2)
-    if (!presentation) return
-
-    if (command.type === 'SHOW_SONG') {
-      setCurrentSlide(null)
+    if (command.type === 'LOAD_SONG') {
+      loadRequestRef.current += 1
+      presentationRef.current = null
+      prevSlideKey.current = ''
+      await ensurePresentation(command.songId, 2)
       return
     }
+
+    const presentation = await ensurePresentation(command.songId, 2)
+    if (!presentation) return
 
     showSlide(presentation, command.sectionIndex, command.slideIndex)
   }
