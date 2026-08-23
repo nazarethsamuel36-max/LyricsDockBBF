@@ -143,10 +143,12 @@ function PresentationPanel() {
       setSongTitle('')
       return
     }
+    let cancelled = false
     const load = async () => {
       try {
         setLoading(true)
         const song = await getSongById(currentSongId)
+        if (cancelled) return
         setSongTitle(song?.title ?? '')
         if (song?.display) {
           setPresentation(PresentationRenderer.render(song.display, presentationDensity))
@@ -159,13 +161,15 @@ function PresentationPanel() {
         setCurrentSlideIndex(0)
         setIsLiveActive(false)
       } catch (err) {
+        if (cancelled) return
         console.error('Failed to load presentation:', err)
         setPresentation(null)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => { cancelled = true }
   }, [currentSongId, presentationDensity])
 
   // ── Broadcast active live slide (or empty state if Live = OFF) ────────────

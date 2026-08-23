@@ -60,14 +60,30 @@ export const useStore = create<StoreState>((set) => ({
   }),
   currentSongId: null,
   setCurrentSongId: (id) => {
-    set({ currentSongId: id })
+    set({
+      currentSongId: id,
+      currentSectionIndex: 0,
+      currentSlideIndex: 0,
+      liveSongId: null,
+      liveSectionIndex: 0,
+      liveSlideIndex: 0,
+      isLiveActive: false,
+    })
 
     if (id !== null) sendRealtimeCommand({ type: 'SHOW_SONG', songId: id })
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()
     if (roomId && isOwner) {
-      updateRoomState(roomId, { current_song_id: id })
+      updateRoomState(roomId, {
+        current_song_id: id,
+        current_section_index: 0,
+        current_slide_index: 0,
+        live_song_id: null,
+        live_section_index: 0,
+        live_slide_index: 0,
+        is_live_active: false,
+      })
     }
     
     if (!isBroadcasting) {
@@ -147,7 +163,8 @@ export const useStore = create<StoreState>((set) => ({
       updateRoomState(roomId, { 
         live_song_id: songId, 
         live_section_index: sectionIndex, 
-        live_slide_index: slideIndex 
+        live_slide_index: slideIndex,
+        is_live_active: true,
       })
     }
     
@@ -157,14 +174,24 @@ export const useStore = create<StoreState>((set) => ({
   },
   isLiveActive: false,
   setIsLiveActive: (active) => {
-    set({ isLiveActive: active })
+    set(active ? { isLiveActive: true } : {
+      isLiveActive: false,
+      liveSongId: null,
+      liveSectionIndex: 0,
+      liveSlideIndex: 0,
+    })
 
     sendRealtimeCommand({ type: 'SET_LIVE', live: active })
     
     // Broadcast to room if active
     const { roomId, isOwner } = getCurrentRoom()
     if (roomId && isOwner) {
-      updateRoomState(roomId, { is_live_active: active })
+      updateRoomState(roomId, active ? { is_live_active: true } : {
+        is_live_active: false,
+        live_song_id: null,
+        live_section_index: 0,
+        live_slide_index: 0,
+      })
     }
     
     if (!isBroadcasting) {
