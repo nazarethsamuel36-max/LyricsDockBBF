@@ -217,7 +217,8 @@ function ViewPage() {
       presentationRef.current = null
       prevSlideKey.current = ''
       setDiagnostic(previous => ({ ...previous, requestedSongId: command.songId, requestedSlideExists: null, slideExists: null }))
-      await ensurePresentation(command.songId, 2)
+      const presentation = await ensurePresentation(command.songId, 2)
+      if (presentation) showSlide(presentation, 0, 0)
       return
     }
 
