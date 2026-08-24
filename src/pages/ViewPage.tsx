@@ -146,50 +146,65 @@ function ViewPage() {
   // Room-state remains the recovery/initial-state path; cached presentations make slide changes local.
   const renderRoomState = async (state: RoomState) => {
     const controllerSong = state.current_song_id ? await db.songIndex.get(state.current_song_id) : null
+    const liveSong = state.live_song_id ? await db.songIndex.get(state.live_song_id) : null
+
     setDiagnostic(previous => ({
       ...previous,
       controllerSongId: state.current_song_id,
       controllerSongTitle: controllerSong?.title ?? null,
-      requestedSongId: state.current_song_id,
-      requestedSongTitle: controllerSong?.title ?? null,
+      requestedSongId: state.live_song_id ?? state.current_song_id,
+      requestedSongTitle: liveSong?.title ?? controllerSong?.title ?? null,
     }))
 
-    if (!state.live_song_id) {
+    // Priority 1: Live song active - show the live slide
+    if (state.live_song_id && state.is_live_active) {
       setDiagnostic(previous => ({
         ...previous,
-        requestedSongId: state.current_song_id,
-        requestedSongTitle: controllerSong?.title ?? null,
         controllerSongId: state.current_song_id,
-        loadedSongId: null,
-        loadedSongTitle: null,
-        status: 'EMPTY',
-        displayed: 'BLANK',
+        sectionIndex: state.live_section_index,
+        slideIndex: state.live_slide_index,
+        songMatch: previous.loadedSongId === null ? null : previous.loadedSongId === state.live_song_id,
       }))
-      setCurrentSlide(null)
+
+      const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
+      // Keep a newly selected slide visible while the separate live flag update arrives.
+      if (!state.is_live_active && stateKey === prevSlideKey.current) {
+        setCurrentSlide(null)
+        return
+      }
+
+      try {
+        const presentation = await ensurePresentation(state.live_song_id, 2)
+        if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0)
+      } catch (error) {
+        console.error('[ViewPage] Error rendering room state:', error)
+      }
       return
     }
 
+    // Priority 2: Song selected but not live - show first slide as preview/ready state
+    if (state.current_song_id) {
+      try {
+        const presentation = await ensurePresentation(state.current_song_id, 2)
+        if (presentation) showSlide(presentation, 0, 0)
+      } catch (error) {
+        console.error('[ViewPage] Error rendering preview:', error)
+      }
+      return
+    }
+
+    // Priority 3: Nothing selected - clear
     setDiagnostic(previous => ({
       ...previous,
-      controllerSongId: state.current_song_id,
-      sectionIndex: state.live_section_index,
-      slideIndex: state.live_slide_index,
-      songMatch: previous.loadedSongId === null ? null : previous.loadedSongId === state.live_song_id,
+      requestedSongId: null,
+      requestedSongTitle: null,
+      controllerSongId: null,
+      loadedSongId: null,
+      loadedSongTitle: null,
+      status: 'EMPTY',
+      displayed: 'BLANK',
     }))
-
-    const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
-    // Keep a newly selected slide visible while the separate live flag update arrives.
-    if (!state.is_live_active && stateKey === prevSlideKey.current) {
-      setCurrentSlide(null)
-      return
-    }
-
-    try {
-      const presentation = await ensurePresentation(state.live_song_id, 2)
-      if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0)
-    } catch (error) {
-      console.error('[ViewPage] Error rendering room state:', error)
-    }
+    setCurrentSlide(null)
   }
 
   const handleRealtimeCommand = async (command: PresentationCommand) => {

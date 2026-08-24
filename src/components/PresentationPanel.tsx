@@ -157,10 +157,10 @@ function PresentationPanel() {
           setPresentation(null)
         }
         
-        // Select first slide & set Live = OFF always when a song is opened
+        // Select the first slide when a song is opened. The store already resets live state
+        // during song selection, so do not send a second SET_LIVE(false) command here.
         setCurrentSectionIndex(0)
         setCurrentSlideIndex(0)
-        setIsLiveActive(false)
       } catch (err) {
         if (cancelled) return
         console.error('Failed to load presentation:', err)
