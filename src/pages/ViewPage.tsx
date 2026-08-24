@@ -137,10 +137,15 @@ function ViewPage() {
     }
 
     const key = `${presentationRef.current?.songId}-${sectionIndex}-${slideIndex}`
-    if (key === prevSlideKey.current) return
+    const prevKeyAtCheck = prevSlideKey.current
+    console.log('[ViewPage] showSlide CHECK:', source, { key, prevKeyAtCheck, willSkip: key === prevKeyAtCheck })
+    if (key === prevSlideKey.current) {
+      console.log('[ViewPage] showSlide SKIPPED:', source, { key })
+      return
+    }
     prevSlideKey.current = key
     const now = Date.now()
-    console.log('[ViewPage] showSlide from:', source, { songId: presentationRef.current?.songId, sectionIndex, slideIndex, key, prevKey: prevSlideKey.current })
+    console.log('[ViewPage] showSlide EXEC:', source, { songId: presentationRef.current?.songId, sectionIndex, slideIndex, key })
     setDiagnostic(previous => ({
       ...previous,
       sectionIndex,
