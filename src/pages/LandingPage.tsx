@@ -83,16 +83,32 @@ function LandingPage() {
 
   return (
     <div className="flex justify-center h-screen bg-black">
-      <div className="flex flex-col w-full max-w-md bg-[#121214] overflow-hidden md:border-x md:border-zinc-850">
+      <div className="flex flex-col w-full max-w-md min-h-screen bg-[#121214] overflow-y-auto md:border-x md:border-zinc-850">
         
         {/* Header */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        <div className="flex-1 flex flex-col items-center justify-start px-6 py-12">
           <h1 className="text-3xl font-semibold text-zinc-100 mb-2">
             Worship Runtime
           </h1>
           <p className="text-sm text-zinc-500 mb-12">
             Presentation Controller System
           </p>
+
+          {/* Presentation Room */}
+          <div className="w-full mb-6">
+            <h2 className="text-lg font-medium text-zinc-200 mb-3">
+              Presentation Room
+            </h2>
+            <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
+              <button
+                onClick={handleCreateRoom}
+                disabled={isCreatingRoom}
+                className="w-full px-4 py-3 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
+              >
+                {isCreatingRoom ? 'Creating Room...' : 'Create Room'}
+              </button>
+            </div>
+          </div>
 
           {/* Join Room */}
           <div className="w-full mb-6 bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
@@ -197,28 +213,10 @@ function LandingPage() {
             </div>
           </div>
 
-          {/* Presentation Room Section */}
-          <div className="w-full">
-            <h2 className="text-lg font-medium text-zinc-200 mb-3">
-              Presentation Room
-            </h2>
-            
-            {/* Create Room */}
-            <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80 mb-3">
-              <button
-                onClick={handleCreateRoom}
-                disabled={isCreatingRoom}
-                className="w-full px-4 py-3 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
-              >
-                {isCreatingRoom ? 'Creating Room...' : 'Create Room'}
-              </button>
-            </div>
-
-          </div>
         </div>
-
       </div>
     </div>
+
   )
 }
 
