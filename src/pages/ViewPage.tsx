@@ -156,7 +156,7 @@ function ViewPage() {
       requestedSongTitle: liveSong?.title ?? controllerSong?.title ?? null,
     }))
 
-    // Priority 1: Live song active - show the live slide
+    // Priority 1: Live song active - show the live slide (initial load / recovery)
     if (state.live_song_id && state.is_live_active) {
       setDiagnostic(previous => ({
         ...previous,
@@ -167,9 +167,8 @@ function ViewPage() {
       }))
 
       const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
-      // Keep a newly selected slide visible while the separate live flag update arrives.
-      if (!state.is_live_active && stateKey === prevSlideKey.current) {
-        setCurrentSlide(null)
+      // Dedupe: if we're already showing this exact slide (via broadcast), skip to avoid double-fade
+      if (stateKey === prevSlideKey.current) {
         return
       }
 
@@ -182,26 +181,15 @@ function ViewPage() {
       return
     }
 
-    // Priority 2: Song selected but not live - show first slide as preview/ready state
-    if (state.current_song_id) {
-      try {
-        const presentation = await ensurePresentation(state.current_song_id, 2)
-        if (presentation) showSlide(presentation, 0, 0)
-      } catch (error) {
-        console.error('[ViewPage] Error rendering preview:', error)
-      }
-      return
-    }
-
-    // Priority 3: Nothing selected - clear
+    // Priority 2: Nothing live — clear (song selected but not live = show nothing)
     setDiagnostic(previous => ({
       ...previous,
-      requestedSongId: null,
-      requestedSongTitle: null,
-      controllerSongId: null,
+      requestedSongId: state.current_song_id,
+      requestedSongTitle: controllerSong?.title ?? null,
+      controllerSongId: state.current_song_id,
       loadedSongId: null,
       loadedSongTitle: null,
-      status: 'EMPTY',
+      status: state.current_song_id ? 'READY' : 'EMPTY',
       displayed: 'BLANK',
     }))
     setCurrentSlide(null)
@@ -224,6 +212,7 @@ function ViewPage() {
         setCurrentSlide(null)
         setDiagnostic(previous => ({ ...previous, status: previous.loadedSongId ? 'READY' : 'EMPTY', displayed: 'BLANK' }))
       }
+      // SET_LIVE(true) is a no-op — SHOW_SLIDE broadcast carries the slide info and handles display
       return
     }
 
@@ -232,11 +221,11 @@ function ViewPage() {
       presentationRef.current = null
       prevSlideKey.current = ''
       setDiagnostic(previous => ({ ...previous, requestedSongId: command.songId, requestedSlideExists: null, slideExists: null }))
-      const presentation = await ensurePresentation(command.songId, 2)
-      if (presentation) showSlide(presentation, 0, 0)
+      await ensurePresentation(command.songId, 2) // Only prepare, don't show
       return
     }
 
+    // SHOW_SLIDE — primary display command
     const presentation = await ensurePresentation(command.songId, 2)
     if (!presentation) return
 
