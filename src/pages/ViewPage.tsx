@@ -372,7 +372,7 @@ function ViewPage() {
         </div>
       )}
 
-      {/* Diagnostic panel temporarily disabled. Remove this JSX comment to re-enable it.
+      {/* Temporary diagnostic panel for presentation sync testing. */}
       <div className="mt-4 w-[min(92vw,760px)] max-h-[30vh] overflow-y-auto rounded border border-yellow-300/40 bg-black/80 px-3 py-2 text-left font-mono text-[11px] leading-relaxed text-yellow-100/90">
         <div className="mb-1 font-bold text-yellow-200">TEMP PRESENTATION SYNC DIAGNOSTIC</div>
         <div>Controller Selected Song: {diagnostic.controllerSongId ?? 'NONE'} / {diagnostic.controllerSongTitle ?? 'NONE'}</div>
@@ -389,7 +389,7 @@ function ViewPage() {
             {mismatches.map(message => <div key={message}>Mismatch: {message}</div>)}
           </div>
         )}
-      </div> */}
+      </div>
 
       {/* Tiny connection indicator */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-20 hover:opacity-70 transition-opacity">

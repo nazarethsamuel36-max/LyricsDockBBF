@@ -94,6 +94,33 @@ function LandingPage() {
             Presentation Controller System
           </p>
 
+          {/* Join Room */}
+          <div className="w-full mb-6 bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
+            <label className="block text-xs text-zinc-400 mb-2">
+              Enter Room Password
+            </label>
+            <input
+              type="text"
+              value={roomPassword}
+              onChange={(e) => setRoomPassword(e.target.value.toUpperCase())}
+              placeholder="CHURCH24"
+              className="w-full px-4 py-2.5 bg-[#121214] rounded-lg text-sm text-zinc-200 placeholder-zinc-500 border border-zinc-800/80 focus:outline-none focus:border-zinc-700 transition-all uppercase"
+              maxLength={8}
+            />
+            <button
+              onClick={handleJoinRoom}
+              disabled={isJoiningRoom}
+              className="w-full mt-3 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
+            >
+              {isJoiningRoom ? 'Joining Room...' : 'Join Room'}
+            </button>
+            {roomError && (
+              <p className="mt-3 text-xs text-red-400 text-center">
+                {roomError}
+              </p>
+            )}
+          </div>
+
           {/* Controller Section */}
           <div className="w-full mb-6">
             <h2 className="text-lg font-medium text-zinc-200 mb-3">
@@ -187,34 +214,6 @@ function LandingPage() {
               </button>
             </div>
 
-            {/* Join Room */}
-            <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
-              <div className="mb-3">
-                <label className="block text-xs text-zinc-400 mb-2">
-                  Room Password
-                </label>
-                <input
-                  type="text"
-                  value={roomPassword}
-                  onChange={(e) => setRoomPassword(e.target.value.toUpperCase())}
-                  placeholder="CHURCH24"
-                  className="w-full px-4 py-2.5 bg-[#121214] rounded-lg text-sm text-zinc-200 placeholder-zinc-500 border border-zinc-800/80 focus:outline-none focus:border-zinc-700 transition-all uppercase"
-                  maxLength={8}
-                />
-              </div>
-              <button
-                onClick={handleJoinRoom}
-                disabled={isJoiningRoom}
-                className="w-full px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
-              >
-                {isJoiningRoom ? 'Joining Room...' : 'Join Room'}
-              </button>
-              {roomError && (
-                <p className="mt-3 text-xs text-red-400 text-center">
-                  {roomError}
-                </p>
-              )}
-            </div>
           </div>
         </div>
 
