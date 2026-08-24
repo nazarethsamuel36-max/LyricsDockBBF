@@ -14,6 +14,8 @@ interface CurrentSlide {
 
 type DiagnosticStatus = 'LOADING' | 'READY' | 'EMPTY' | 'ERROR'
 
+type DisplaySource = 'SHOW_SLIDE' | 'ROOM_STATE' | 'BROADCAST_CHANNEL' | 'LOAD_SONG' | 'SET_LIVE_OFF' | 'CLEAR_SONG' | 'INIT' | null
+
 interface DiagnosticState {
   controllerSongId: number | null
   controllerSongTitle: string | null
@@ -30,6 +32,8 @@ interface DiagnosticState {
   slideExists: boolean | null
   displayed: 'VISIBLE' | 'BLANK' | 'INVALID'
   mismatches: string[]
+  lastDisplaySource: DisplaySource
+  lastDisplayTime: number
 }
 
 function ViewPage() {
@@ -50,12 +54,15 @@ function ViewPage() {
     slideExists: null,
     displayed: 'BLANK',
     mismatches: [],
+    lastDisplaySource: null,
+    lastDisplayTime: 0,
   })
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'broadcast' | 'error'>('connecting')
   const prevSlideKey = useRef<string>('')
   const joinedRef = useRef(false)
   const presentationRef = useRef<{ songId: number; density: 4 | 2; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
   const loadRequestRef = useRef(0)
+  const displayRequestRef = useRef(0) // Unified request ID for all display operations
 
   // ── Transparent background for OBS overlay ──────────────────────────────
   useEffect(() => {
@@ -68,7 +75,7 @@ function ViewPage() {
   }, [])
 
   // Load and render only when the song or density changes. Slide changes are RAM lookups.
-  const ensurePresentation = async (songId: number, density: 4 | 2) => {
+  const ensurePresentation = async (songId: number, density: 4 | 2, requestId?: number) => {
     setDiagnostic(previous => ({
       ...previous,
       requestedSongId: songId,
@@ -85,12 +92,12 @@ function ViewPage() {
       return cached.presentation
     }
 
-    const requestId = ++loadRequestRef.current
+    const currentRequestId = requestId ?? ++displayRequestRef.current
     const localSong = await db.songs.get(songId)
     setDiagnostic(previous => ({ ...previous, indexedDb: localSong ? 'FOUND' : 'MISSING' }))
     try {
       const song = await getSongById(songId)
-      if (requestId !== loadRequestRef.current) return null
+      if (requestId && currentRequestId !== displayRequestRef.current) return null
       if (!song?.display) {
         setDiagnostic(previous => ({ ...previous, status: 'EMPTY', loadedSongId: null, loadedSongTitle: null }))
         return null
@@ -113,7 +120,7 @@ function ViewPage() {
     }
   }
 
-  const showSlide = (presentation: ReturnType<typeof PresentationRenderer.render>, sectionIndex: number, slideIndex: number) => {
+  const showSlide = (presentation: ReturnType<typeof PresentationRenderer.render>, sectionIndex: number, slideIndex: number, source: DisplaySource) => {
     const section = presentation.sections[sectionIndex]
     const slide = section?.slides[slideIndex]
     if (!section || !slide) {
@@ -132,6 +139,8 @@ function ViewPage() {
     const key = `${presentationRef.current?.songId}-${sectionIndex}-${slideIndex}`
     if (key === prevSlideKey.current) return
     prevSlideKey.current = key
+    const now = Date.now()
+    console.log('[ViewPage] showSlide from:', source, { songId: presentationRef.current?.songId, sectionIndex, slideIndex, key, prevKey: prevSlideKey.current })
     setDiagnostic(previous => ({
       ...previous,
       sectionIndex,
@@ -139,6 +148,8 @@ function ViewPage() {
       requestedSlideExists: true,
       slideExists: true,
       displayed: 'VISIBLE',
+      lastDisplaySource: source,
+      lastDisplayTime: now,
     }))
     setCurrentSlide({ lines: slide.lines.map(line => line.text), sectionTitle: section.title })
   }
@@ -174,7 +185,7 @@ function ViewPage() {
 
       try {
         const presentation = await ensurePresentation(state.live_song_id, 2)
-        if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0)
+        if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0, 'ROOM_STATE')
       } catch (error) {
         console.error('[ViewPage] Error rendering room state:', error)
       }
@@ -238,7 +249,7 @@ function ViewPage() {
       songMatch: previous.loadedSongId === command.songId,
     }))
 
-    showSlide(presentation, command.sectionIndex, command.slideIndex)
+    showSlide(presentation, command.sectionIndex, command.slideIndex, 'SHOW_SLIDE')
   }
 
   // ── Connection setup ──────────────────────────────────────────────────────
@@ -301,9 +312,17 @@ function ViewPage() {
         if (connectionStatus !== 'connected') {
           setConnectionStatus('broadcast')
           if (message.lines?.length > 0) {
-            setCurrentSlide({ lines: message.lines, sectionTitle: message.title ?? '' })
+            // Create a minimal presentation-like object for showSlide
+            const tempPresentation = {
+              sections: [{
+                title: message.title ?? '',
+                slides: [{ lines: message.lines.map((text: string) => ({ text })) }]
+              }]
+            } as ReturnType<typeof PresentationRenderer.render>
+            showSlide(tempPresentation, 0, 0, 'BROADCAST_CHANNEL')
           } else {
             setCurrentSlide(null)
+            setDiagnostic(previous => ({ ...previous, displayed: 'BLANK', lastDisplaySource: 'BROADCAST_CHANNEL' as DisplaySource, lastDisplayTime: Date.now() }))
           }
         }
       }
@@ -388,6 +407,7 @@ function ViewPage() {
         <div>Requested slide exists locally: {diagnostic.requestedSlideExists === null ? 'UNKNOWN' : diagnostic.requestedSlideExists ? 'YES' : 'NO'}</div>
         <div>Song Match: {songMatch} | Slide Exists: {slideExists}</div>
         <div>Displayed: {diagnostic.displayed}</div>
+        <div>Last Display Source: {diagnostic.lastDisplaySource ?? 'NONE'} @ {diagnostic.lastDisplayTime ? new Date(diagnostic.lastDisplayTime).toLocaleTimeString() : 'N/A'}</div>
         {mismatches.length > 0 && (
           <div className="mt-1 text-red-200">
             {mismatches.map(message => <div key={message}>Mismatch: {message}</div>)}
