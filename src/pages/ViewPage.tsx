@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { getCurrentRoom, getRoomState, subscribeToRoomState, joinRoom } from '../services/RoomService'
-import type { RoomState } from '../services/RoomService'
+import { getCurrentRoom, joinRoom } from '../services/RoomService'
 import { getSongById } from '../services/DataService'
 import { db } from '../db/Database'
 import { PresentationRenderer } from '../presentation/PresentationRenderer'
@@ -159,58 +158,6 @@ function ViewPage() {
     setCurrentSlide({ lines: slide.lines.map(line => line.text), sectionTitle: section.title })
   }
 
-  // Room-state remains the recovery/initial-state path; cached presentations make slide changes local.
-  const renderRoomState = async (state: RoomState) => {
-    const controllerSong = state.current_song_id ? await db.songIndex.get(state.current_song_id) : null
-    const liveSong = state.live_song_id ? await db.songIndex.get(state.live_song_id) : null
-
-    setDiagnostic(previous => ({
-      ...previous,
-      controllerSongId: state.current_song_id,
-      controllerSongTitle: controllerSong?.title ?? null,
-      requestedSongId: state.live_song_id ?? state.current_song_id,
-      requestedSongTitle: liveSong?.title ?? controllerSong?.title ?? null,
-    }))
-
-    // Priority 1: Live song active - show the live slide (initial load / recovery)
-    if (state.live_song_id && state.is_live_active) {
-      setDiagnostic(previous => ({
-        ...previous,
-        controllerSongId: state.current_song_id,
-        sectionIndex: state.live_section_index,
-        slideIndex: state.live_slide_index,
-        songMatch: previous.loadedSongId === null ? null : previous.loadedSongId === state.live_song_id,
-      }))
-
-      const stateKey = `${state.live_song_id}-${state.live_section_index ?? 0}-${state.live_slide_index ?? 0}`
-      // Dedupe: if we're already showing this exact slide (via broadcast), skip to avoid double-fade
-      if (stateKey === prevSlideKey.current) {
-        return
-      }
-
-      try {
-        const presentation = await ensurePresentation(state.live_song_id, 2)
-        if (presentation) showSlide(presentation, state.live_section_index ?? 0, state.live_slide_index ?? 0, 'ROOM_STATE')
-      } catch (error) {
-        console.error('[ViewPage] Error rendering room state:', error)
-      }
-      return
-    }
-
-    // Priority 2: Nothing live — clear (song selected but not live = show nothing)
-    setDiagnostic(previous => ({
-      ...previous,
-      requestedSongId: state.current_song_id,
-      requestedSongTitle: controllerSong?.title ?? null,
-      controllerSongId: state.current_song_id,
-      loadedSongId: null,
-      loadedSongTitle: null,
-      status: state.current_song_id ? 'READY' : 'EMPTY',
-      displayed: 'BLANK',
-    }))
-    setCurrentSlide(null)
-  }
-
   const handleRealtimeCommand = async (command: PresentationCommand) => {
     setConnectionStatus('connected')
 
@@ -262,21 +209,6 @@ function ViewPage() {
     const params = new URLSearchParams(window.location.search)
     const roomParam = params.get('room')
 
-    const startRoomConnection = (roomId: string) => {
-      setConnectionStatus('connecting')
-      getRoomState(roomId).then((state) => {
-        if (state) { setConnectionStatus('connected'); renderRoomState(state) }
-        else setConnectionStatus('error')
-      })
-      const unsub = subscribeToRoomState(roomId, (state) => {
-        setConnectionStatus('connected')
-        renderRoomState(state)
-      })
-      return unsub
-    }
-
-    let unsubscribeRoom: (() => void) | null = null
-
     // Priority 1: ?room=PASSWORD — auto-join silently (OBS / direct link)
     if (roomParam && !joinedRef.current) {
       joinedRef.current = true
@@ -285,7 +217,6 @@ function ViewPage() {
         if (room) {
           presentationRealtime.connect(room.id, room.owner_id)
           presentationRealtime.subscribe(handleRealtimeCommand)
-          unsubscribeRoom = startRoomConnection(room.id)
         } else {
           setConnectionStatus('error')
         }
@@ -296,7 +227,6 @@ function ViewPage() {
       if (roomId && !isOwner) {
         presentationRealtime.connect(roomId, getCurrentRoom().ownerDeviceId)
         presentationRealtime.subscribe(handleRealtimeCommand)
-        unsubscribeRoom = startRoomConnection(roomId)
       } else {
         // Priority 3: BroadcastChannel — same-device tabs
         setConnectionStatus('broadcast')
@@ -331,7 +261,6 @@ function ViewPage() {
     return () => {
       bc?.close()
       presentationRealtime.disconnect()
-      if (unsubscribeRoom) unsubscribeRoom()
     }
   }, [])
 

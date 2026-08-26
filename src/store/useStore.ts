@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { SetlistItem } from '../db/Database'
-import { getCurrentRoom, updateRoomState } from '../services/RoomService'
+import { getCurrentRoom } from '../services/RoomService'
 import { presentationRealtime } from '../services/PresentationRealtimeService'
 
 // BroadcastChannel for cross-tab synchronization
@@ -76,20 +76,6 @@ export const useStore = create<StoreState>((set) => ({
 
     sendRealtimeCommand(id === null ? { type: 'CLEAR_SONG' } : { type: 'LOAD_SONG', songId: id })
     
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, {
-        current_song_id: id,
-        current_section_index: 0,
-        current_slide_index: 0,
-        live_song_id: null,
-        live_section_index: 0,
-        live_slide_index: 0,
-        is_live_active: false,
-      })
-    }
-    
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSongId', value: id })
     }
@@ -99,24 +85,12 @@ export const useStore = create<StoreState>((set) => ({
   setCurrentSectionIndex: (index) => {
     set({ currentSectionIndex: index })
     
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, { current_section_index: index })
-    }
-    
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSectionIndex', value: index })
     }
   },
   setCurrentSlideIndex: (index) => {
     set({ currentSlideIndex: index })
-    
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, { current_slide_index: index })
-    }
     
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSlideIndex', value: index })
@@ -125,12 +99,6 @@ export const useStore = create<StoreState>((set) => ({
   resetPresentation: () => {
     set({ currentSectionIndex: 0, currentSlideIndex: 0 })
     
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, { current_section_index: 0, current_slide_index: 0 })
-    }
-    
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'resetPresentation' })
     }
@@ -138,12 +106,6 @@ export const useStore = create<StoreState>((set) => ({
   presentationDensity: 2,
   setPresentationDensity: (density) => {
     set({ presentationDensity: density })
-    
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, { presentation_density: density })
-    }
     
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'presentationDensity', value: density })
@@ -161,17 +123,6 @@ export const useStore = create<StoreState>((set) => ({
       sendRealtimeCommand({ type: 'SHOW_SLIDE', songId, sectionIndex, slideIndex })
     }
     
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, { 
-        live_song_id: songId, 
-        live_section_index: sectionIndex, 
-        live_slide_index: slideIndex,
-        is_live_active: true,
-      })
-    }
-    
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'liveSlide', value: { songId, sectionIndex, slideIndex } })
     }
@@ -186,17 +137,6 @@ export const useStore = create<StoreState>((set) => ({
     })
 
     sendRealtimeCommand({ type: 'SET_LIVE', live: active })
-    
-    // Broadcast to room if active
-    const { roomId, isOwner } = getCurrentRoom()
-    if (roomId && isOwner) {
-      updateRoomState(roomId, active ? { is_live_active: true } : {
-        is_live_active: false,
-        live_song_id: null,
-        live_section_index: 0,
-        live_slide_index: 0,
-      })
-    }
     
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'isLiveActive', value: active })
