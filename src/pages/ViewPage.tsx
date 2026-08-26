@@ -306,14 +306,14 @@ function ViewPage() {
             {currentSlide.lines.map((line, index) => (
               <div
                 key={index}
-                className="presentation-lyrics text-[54px] font-semibold leading-snug text-[#fffde7]"
+                className="presentation-lyrics text-[42px] font-semibold leading-snug text-white"
                 style={{
-                  // Layered shadow: crisp near-shadow + soft wide glow for pop on any background
+                  // Layered shadow keeps white lyrics readable over bright backgrounds.
                   textShadow: `
-                    0 1px 3px rgba(0,0,0,0.95),
-                    0 3px 8px rgba(0,0,0,0.85),
-                    0 8px 24px rgba(0,0,0,0.70),
-                    0 0  40px rgba(0,0,0,0.50)
+                    0 1px 3px rgba(0,0,0,1),
+                    0 3px 8px rgba(0,0,0,0.95),
+                    0 8px 24px rgba(0,0,0,0.85),
+                    0 0 40px rgba(0,0,0,0.70)
                   `,
                 }}
               >
@@ -323,26 +323,6 @@ function ViewPage() {
           </div>
         </div>
       )}
-
-      {/* Temporary diagnostic panel for presentation sync testing. */}
-      <div className="mt-4 w-[min(92vw,760px)] max-h-[30vh] overflow-y-auto rounded border border-yellow-300/40 bg-black/80 px-3 py-2 text-left font-mono text-[11px] leading-relaxed text-yellow-100/90">
-        <div className="mb-1 font-bold text-yellow-200">TEMP PRESENTATION SYNC DIAGNOSTIC</div>
-        <div>Controller Selected Song: {diagnostic.controllerSongId ?? 'NONE'} / {diagnostic.controllerSongTitle ?? 'NONE'}</div>
-        <div>Requested Song: {diagnostic.requestedSongId ?? 'NONE'} / {diagnostic.requestedSongTitle ?? 'NONE'}</div>
-        <div>Presentation Loaded Song: {diagnostic.loadedSongId ?? 'NONE'} / {diagnostic.loadedSongTitle ?? 'NONE'}</div>
-        <div>IndexedDB: {diagnostic.indexedDb}</div>
-        <div>Status: {diagnostic.status}</div>
-        <div>Current section: {diagnostic.sectionIndex ?? 'NONE'} | Current slide: {diagnostic.slideIndex ?? 'NONE'}</div>
-        <div>Requested slide exists locally: {diagnostic.requestedSlideExists === null ? 'UNKNOWN' : diagnostic.requestedSlideExists ? 'YES' : 'NO'}</div>
-        <div>Song Match: {songMatch} | Slide Exists: {slideExists}</div>
-        <div>Displayed: {diagnostic.displayed}</div>
-        <div>Last Display Source: {diagnostic.lastDisplaySource ?? 'NONE'} @ {diagnostic.lastDisplayTime ? new Date(diagnostic.lastDisplayTime).toLocaleTimeString() : 'N/A'}</div>
-        {mismatches.length > 0 && (
-          <div className="mt-1 text-red-200">
-            {mismatches.map(message => <div key={message}>Mismatch: {message}</div>)}
-          </div>
-        )}
-      </div>
 
       {/* Tiny connection indicator */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-20 hover:opacity-70 transition-opacity">

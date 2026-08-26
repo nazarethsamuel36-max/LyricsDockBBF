@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
+import { db } from '../db/Database'
 import type { SetlistItem } from '../db/Database'
 
 interface SetlistPanelProps {
@@ -11,6 +13,30 @@ function SetlistPanel({ onSongSelect }: SetlistPanelProps) {
   const reorderSetlist = useStore((s) => s.reorderSetlist)
   const currentSongId = useStore((s) => s.currentSongId)
   const setCurrentSongId = useStore((s) => s.setCurrentSongId)
+  const [songDetails, setSongDetails] = useState<Record<number, { songNumber: number; title: string }>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    const songIds = setlist
+      .filter((item) => item.type !== 'marker' && item.songId !== undefined)
+      .map((item) => item.songId as number)
+
+    if (songIds.length === 0) {
+      setSongDetails({})
+      return () => { cancelled = true }
+    }
+
+    db.songIndex.bulkGet(songIds).then((songs) => {
+      if (cancelled) return
+      const details: Record<number, { songNumber: number; title: string }> = {}
+      songs.forEach((song) => {
+        if (song) details[song.id] = { songNumber: song.songNumber, title: song.title }
+      })
+      setSongDetails(details)
+    })
+
+    return () => { cancelled = true }
+  }, [setlist])
 
   const handleSelect = (songId: number) => {
     setCurrentSongId(songId)
@@ -80,7 +106,11 @@ function SetlistPanel({ onSongSelect }: SetlistPanelProps) {
                     <div className={`text-sm font-medium truncate leading-snug ${
                       isActive ? 'text-white' : 'text-zinc-300'
                     }`}>
-                      {item.type === 'marker' ? item.label : `Song #${item.songId}`}
+                      {item.type === 'marker'
+                        ? item.label
+                        : songDetails[item.songId ?? -1]
+                          ? `${songDetails[item.songId ?? -1].songNumber}. ${songDetails[item.songId ?? -1].title}`
+                          : `Song #${item.songId}`}
                     </div>
                     {item.transpose && item.transpose !== 0 && (
                       <div className="text-xs text-zinc-500 mt-0.5">
