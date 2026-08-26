@@ -14,6 +14,10 @@ function sendRealtimeCommand(command: Parameters<typeof presentationRealtime.sen
   void presentationRealtime.send(command)
 }
 
+function isRoomActive() {
+  return Boolean(getCurrentRoom().roomId)
+}
+
 interface StoreState {
   selectedLanguage: string;
   setSelectedLanguage: (lang: string) => void;
@@ -86,7 +90,7 @@ export const useStore = create<StoreState>((set) => ({
       })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSongId', value: id })
     }
   },
@@ -101,7 +105,7 @@ export const useStore = create<StoreState>((set) => ({
       updateRoomState(roomId, { current_section_index: index })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSectionIndex', value: index })
     }
   },
@@ -114,7 +118,7 @@ export const useStore = create<StoreState>((set) => ({
       updateRoomState(roomId, { current_slide_index: index })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'currentSlideIndex', value: index })
     }
   },
@@ -127,7 +131,7 @@ export const useStore = create<StoreState>((set) => ({
       updateRoomState(roomId, { current_section_index: 0, current_slide_index: 0 })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'resetPresentation' })
     }
   },
@@ -141,7 +145,7 @@ export const useStore = create<StoreState>((set) => ({
       updateRoomState(roomId, { presentation_density: density })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'presentationDensity', value: density })
     }
   },
@@ -168,7 +172,7 @@ export const useStore = create<StoreState>((set) => ({
       })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'liveSlide', value: { songId, sectionIndex, slideIndex } })
     }
   },
@@ -194,7 +198,7 @@ export const useStore = create<StoreState>((set) => ({
       })
     }
     
-    if (!isBroadcasting) {
+    if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'isLiveActive', value: active })
     }
   },
@@ -202,6 +206,8 @@ export const useStore = create<StoreState>((set) => ({
 
 // Listen for BroadcastChannel messages and update store
 channel.onmessage = (event) => {
+  if (isRoomActive()) return
+
   const { type, value } = event.data
   isBroadcasting = true
   

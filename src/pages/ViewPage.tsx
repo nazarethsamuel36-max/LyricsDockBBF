@@ -303,18 +303,13 @@ function ViewPage() {
       }
     }
 
-    // BroadcastChannel always listens as same-device fallback
     const roomIdentity = getCurrentRoom()
-    const bc = new BroadcastChannel('song-viewer')
-    bc.onmessage = (event) => {
-      const message = event.data
-      if (message.type === 'SELECT_BLOCK' && message.blockId === 'dynamic') {
-        if (
-          !roomIdentity.roomId ||
-          message.roomId !== roomIdentity.roomId ||
-          message.senderDeviceId !== roomIdentity.ownerDeviceId
-        ) return
-        if (connectionStatus !== 'connected') {
+    const bc = roomIdentity.roomId ? null : new BroadcastChannel('song-viewer')
+    if (bc) {
+      bc.onmessage = (event) => {
+        const message = event.data
+        if (message.type === 'SELECT_BLOCK' && message.blockId === 'dynamic') {
+          if (message.senderDeviceId !== getCurrentRoom().ownerDeviceId) return
           setConnectionStatus('broadcast')
           if (message.lines?.length > 0) {
             // Create a minimal presentation-like object for showSlide
@@ -334,7 +329,7 @@ function ViewPage() {
     }
 
     return () => {
-      bc.close()
+      bc?.close()
       presentationRealtime.disconnect()
       if (unsubscribeRoom) unsubscribeRoom()
     }

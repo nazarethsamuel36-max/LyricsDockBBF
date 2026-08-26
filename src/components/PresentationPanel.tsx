@@ -175,6 +175,8 @@ function PresentationPanel() {
 
   // ── Broadcast active live slide (or empty state if Live = OFF) ────────────
   useEffect(() => {
+    if (getCurrentRoom().roomId) return
+
     const channel = new BroadcastChannel('song-viewer')
     
     if (isLiveActive && presentation && liveSongId === currentSongId) {
