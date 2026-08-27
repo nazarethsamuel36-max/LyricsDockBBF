@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getCurrentRoom, joinRoom } from '../services/RoomService'
 import { getSongById } from '../services/DataService'
 import { db } from '../db/Database'
@@ -36,6 +37,7 @@ interface DiagnosticState {
 }
 
 function ViewPage() {
+  const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState<CurrentSlide | null>(null)
   const [diagnostic, setDiagnostic] = useState<DiagnosticState>({
     controllerSongId: null,
@@ -62,6 +64,7 @@ function ViewPage() {
   const presentationRef = useRef<{ songId: number; density: 4 | 2; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
   const loadRequestRef = useRef(0)
   const displayRequestRef = useRef(0) // Unified request ID for all display operations
+  const isDirectRoomView = new URLSearchParams(window.location.search).has('room')
 
   // ── Transparent background for OBS overlay ──────────────────────────────
   useEffect(() => {
@@ -296,6 +299,18 @@ function ViewPage() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-transparent items-center justify-end pb-[6vh] overflow-hidden select-none">
+
+      {!isDirectRoomView && (
+        <button
+          onClick={() => navigate('/')}
+          aria-label="Back to home"
+          className="absolute top-0 right-0 z-10 h-[70px] w-[70px] cursor-pointer bg-transparent"
+        >
+          <svg className="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
 
       {currentSlide && (
         <div

@@ -83,7 +83,7 @@ function LandingPage() {
 
   return (
     <div className="flex justify-center h-screen bg-black">
-      <div className="flex flex-col w-full max-w-md min-h-screen bg-[#121214] overflow-y-auto md:border-x md:border-zinc-850">
+      <div className="flex flex-col w-full max-w-md md:max-w-4xl lg:max-w-6xl min-h-screen bg-[#121214] overflow-y-auto md:border-x md:border-zinc-850">
         
         {/* Header */}
         <div className="flex-1 flex flex-col items-center justify-start px-6 py-12">

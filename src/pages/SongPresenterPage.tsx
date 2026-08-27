@@ -6,7 +6,7 @@ function SongPresenterPage() {
 
   return (
     <div className="flex justify-center h-screen bg-black">
-      <div className="flex flex-col w-full max-w-md bg-[#121214] overflow-hidden md:border-x md:border-zinc-850">
+      <div className="flex flex-col w-full max-w-md md:max-w-5xl lg:max-w-7xl bg-[#121214] overflow-hidden md:border-x md:border-zinc-850">
 
         {/* Thin top bar — just a back arrow, nothing else */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-zinc-800/80">

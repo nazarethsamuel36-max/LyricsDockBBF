@@ -36,7 +36,7 @@ function JoinPage() {
 
   return (
     <div className="flex justify-center h-screen bg-black">
-      <div className="flex flex-col w-full max-w-md bg-[#121214] overflow-hidden md:border-x md:border-zinc-850">
+      <div className="flex flex-col w-full max-w-md md:max-w-5xl lg:max-w-7xl bg-[#121214] overflow-hidden md:border-x md:border-zinc-850">
         
         {/* Header */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
