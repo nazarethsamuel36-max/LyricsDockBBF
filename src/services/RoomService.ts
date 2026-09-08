@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient'
+import { ensureAuthenticated, supabase } from '../lib/supabaseClient'
 
 export interface PresentationRoom {
   id: string
@@ -56,6 +56,7 @@ export function getDeviceId(): string {
 // Create a new presentation room
 export async function createRoom(): Promise<{ room: PresentationRoom; password: string } | null> {
   try {
+    const user = await ensureAuthenticated()
     const deviceId = getDeviceId()
     const password = generateRoomPassword()
     
@@ -120,17 +121,18 @@ export async function createRoom(): Promise<{ room: PresentationRoom; password: 
 // Join an existing room by password
 export async function joinRoom(password: string, deviceType: 'controller' | 'viewer' = 'viewer'): Promise<PresentationRoom | null> {
   try {
+    const user = await ensureAuthenticated()
     const deviceId = getDeviceId()
     
     console.log('Attempting to join room with password:', password)
     
-    // Find room by password
-    const { data: room, error: roomError } = await supabase
-      .from('presentation_rooms')
-      .select('*')
-      .eq('password', password)
-      .eq('is_active', true)
-      .single()
+    // Validate the password and create membership inside a restricted RPC.
+    const { data: rawRoom, error: roomError } = await supabase.rpc('join_room', {
+      room_password: password,
+      participant_device_id: deviceId,
+      participant_device_type: deviceType
+    }).maybeSingle()
+    const room = rawRoom as PresentationRoom | null
     
     if (roomError) {
       console.error('Room not found or error:', roomError)
@@ -143,18 +145,6 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
     }
     
     console.log('Found room:', room.id)
-    
-    // Register as participant
-    const { error: participantError } = await supabase.from('room_participants').insert({
-      room_id: room.id,
-      device_id: deviceId,
-      device_type: deviceType
-    })
-    
-    if (participantError) {
-      console.error('Error registering participant:', participantError)
-      // Continue anyway - participant registration failure shouldn't block joining
-    }
     
     // Store current room info in localStorage
     localStorage.setItem('worship_runtime_current_room_id', room.id)
@@ -174,6 +164,7 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
 // Leave current room
 export async function leaveRoom(): Promise<void> {
   try {
+    await ensureAuthenticated()
     const roomId = localStorage.getItem('worship_runtime_current_room_id')
     const deviceId = getDeviceId()
     
@@ -211,6 +202,7 @@ export function getCurrentRoom(): { roomId: string | null; password: string | nu
 // Get room state
 export async function getRoomState(roomId: string): Promise<RoomState | null> {
   try {
+    await ensureAuthenticated()
     const { data, error } = await supabase
       .from('room_state')
       .select('*')
@@ -232,6 +224,7 @@ export async function getRoomState(roomId: string): Promise<RoomState | null> {
 // Update room state (only room owner should do this)
 export async function updateRoomState(roomId: string, updates: Partial<RoomState>): Promise<boolean> {
   try {
+    await ensureAuthenticated()
     const isOwner = localStorage.getItem('worship_runtime_is_room_owner') === 'true'
     
     if (!isOwner) {
@@ -291,6 +284,7 @@ export function subscribeToRoomState(
 // End room (only owner can do this)
 export async function endRoom(roomId: string): Promise<boolean> {
   try {
+    await ensureAuthenticated()
     const isOwner = localStorage.getItem('worship_runtime_is_room_owner') === 'true'
     
     if (!isOwner) {

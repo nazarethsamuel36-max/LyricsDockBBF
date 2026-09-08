@@ -21,3 +21,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export async function ensureAuthenticated() {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (session?.user) {
+    return session.user;
+  }
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+
+  if (error || !data.user) {
+    throw error ?? new Error('Anonymous authentication failed');
+  }
+
+  return data.user;
+}

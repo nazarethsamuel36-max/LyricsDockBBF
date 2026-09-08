@@ -9,7 +9,7 @@ function BottomNavigation() {
     : location.pathname === path
 
   return (
-    <div className="flex border-t border-zinc-800 bg-[#121214]">
+    <div className="sticky bottom-0 z-20 flex shrink-0 border-t border-zinc-800 bg-[#121214] pb-[env(safe-area-inset-bottom)]">
       {/* Songs Tab */}
       <button
         onClick={() => navigate('/songs')}
