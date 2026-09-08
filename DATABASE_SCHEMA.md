@@ -71,6 +71,11 @@ ALTER TABLE presentation_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_participants ENABLE ROW LEVEL SECURITY;
 
+-- Required table privileges for the browser Supabase client
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE presentation_rooms TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_state TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_participants TO anon, authenticated;
+
 -- Allow anyone to read active rooms (for joining)
 CREATE POLICY "Anyone can read active rooms"
   ON presentation_rooms FOR SELECT
@@ -150,6 +155,11 @@ CREATE INDEX IF NOT EXISTS idx_room_participants_device_id ON room_participants(
 ALTER TABLE presentation_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_participants ENABLE ROW LEVEL SECURITY;
+
+-- Required table privileges for the browser Supabase client
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE presentation_rooms TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_state TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_participants TO anon, authenticated;
 
 -- Create policies
 CREATE POLICY "Anyone can read active rooms"
