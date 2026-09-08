@@ -56,7 +56,6 @@ export function getDeviceId(): string {
 // Create a new presentation room
 export async function createRoom(): Promise<{ room: PresentationRoom; password: string } | null> {
   try {
-    const user = await ensureAuthenticated()
     const deviceId = getDeviceId()
     const password = generateRoomPassword()
     

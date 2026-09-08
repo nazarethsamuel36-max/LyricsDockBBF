@@ -76,6 +76,11 @@ CREATE POLICY "Anyone can read active rooms"
   ON presentation_rooms FOR SELECT
   USING (is_active = true);
 
+-- Required for createRoom(): the client inserts a new room directly
+CREATE POLICY "Anyone can insert rooms"
+  ON presentation_rooms FOR INSERT
+  WITH CHECK (true);
+
 -- Allow anyone to read room state
 CREATE POLICY "Anyone can read room state"
   ON room_state FOR SELECT
