@@ -23,6 +23,9 @@ function LandingPage() {
   const quickStartUrl = quickStartPassword
     ? `${base}/join/${quickStartPassword}?role=controller`
     : `${base}/?start-room=1`
+  const presentationUrl = quickStartPassword
+    ? `${base}/view?room=${quickStartPassword}`
+    : `${base}/view`
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -52,8 +55,8 @@ function LandingPage() {
     
     if (result) {
       setQuickStartPassword(result.password)
-      // Navigate to controller with room context
-      navigate('/controller')
+      // Keep the laptop on the presentation screen while the scanned phone becomes the controller.
+      navigate(`/view?room=${result.password}`)
     } else {
       setRoomError('Failed to create room. Please try again.')
     }

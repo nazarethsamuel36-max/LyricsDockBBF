@@ -211,27 +211,36 @@ function ViewPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const roomParam = params.get('room')
+    const currentRoom = getCurrentRoom()
 
-    // Priority 1: ?room=PASSWORD — auto-join silently (OBS / direct link)
-    if (roomParam && !joinedRef.current) {
+    // Priority 1: if this device created the room, keep it on the presentation screen.
+    if (currentRoom.roomId && currentRoom.isOwner) {
+      presentationRealtime.connect(currentRoom.roomId, currentRoom.ownerDeviceId)
+      presentationRealtime.subscribe(handleRealtimeCommand)
+      setConnectionStatus('connected')
+    }
+    // Priority 2: ?room=PASSWORD — auto-join silently (OBS / direct link for non-owner viewers)
+    else if (roomParam && !joinedRef.current) {
       joinedRef.current = true
       setConnectionStatus('connecting')
       joinRoom(roomParam.toUpperCase()).then((room) => {
         if (room) {
           presentationRealtime.connect(room.id, room.owner_id)
           presentationRealtime.subscribe(handleRealtimeCommand)
+          setConnectionStatus('connected')
         } else {
           setConnectionStatus('error')
         }
       })
     } else {
-      // Priority 2: Already in a room via localStorage
-      const { roomId, isOwner } = getCurrentRoom()
+      // Priority 3: Already in a room via localStorage as a viewer
+      const { roomId, isOwner } = currentRoom
       if (roomId && !isOwner) {
-        presentationRealtime.connect(roomId, getCurrentRoom().ownerDeviceId)
+        presentationRealtime.connect(roomId, currentRoom.ownerDeviceId)
         presentationRealtime.subscribe(handleRealtimeCommand)
+        setConnectionStatus('connected')
       } else {
-        // Priority 3: BroadcastChannel — same-device tabs
+        // Priority 4: BroadcastChannel — same-device tabs
         setConnectionStatus('broadcast')
       }
     }

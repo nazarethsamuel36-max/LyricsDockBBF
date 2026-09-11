@@ -13,7 +13,7 @@ function RoomManager() {
   }
 
   const base = window.location.origin
-  const joinUrl = `${base}/join/${password}`
+  const joinUrl = `${base}/join/${password}?role=controller`
   // OBS URL: direct view with auto-join — no redirect, works in OBS browser source
   const obsUrl = `${base}/view?room=${password}`
 
