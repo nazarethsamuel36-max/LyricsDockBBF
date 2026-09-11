@@ -358,17 +358,16 @@ function ViewPage() {
   return (
     <div className="flex h-screen w-screen flex-col bg-transparent items-center justify-end pb-[6vh] overflow-hidden select-none">
 
-      {!isDirectRoomView && (
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Back to home"
-          className="absolute top-0 right-0 z-10 h-[70px] w-[70px] cursor-pointer bg-transparent"
-        >
-          <svg className="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      )}
+      {/* Invisible corner hotspot to exit presentation view (works in both Create Room & Create QR) */}
+      <button
+        onClick={() => navigate('/')}
+        aria-label="Back to home"
+        className="absolute top-0 right-0 z-10 h-[250px] w-[250px] cursor-pointer bg-transparent"
+      >
+        <svg className="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
 
       {currentSlide && (
         <div
