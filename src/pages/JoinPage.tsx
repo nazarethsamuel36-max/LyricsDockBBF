@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { joinRoom } from '../services/RoomService'
+import { presentationRealtime } from '../services/PresentationRealtimeService'
 
 function JoinPage() {
   const { password } = useParams<{ password: string }>()
@@ -21,6 +22,10 @@ function JoinPage() {
       const room = await joinRoom(password.toUpperCase(), requestedRole)
       
       if (room) {
+        if (requestedRole === 'controller') {
+          presentationRealtime.connect(room.id)
+          await presentationRealtime.broadcastControllerConnected('controller')
+        }
         // Successfully joined, navigate to the appropriate screen for the scanned role.
         navigate(requestedRole === 'controller' ? '/controller' : '/view')
       } else {

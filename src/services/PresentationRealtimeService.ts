@@ -4,6 +4,7 @@ import type { PresentationCommandEnvelope } from '../types/PresentationCommand'
 import { getDeviceId } from './RoomService'
 
 type CommandCallback = (command: PresentationCommand) => void
+type ControllerConnectedCallback = (payload: { deviceId: string; role: string }) => void
 
 class PresentationRealtimeService {
   private channel: ReturnType<typeof supabase.channel> | null = null
@@ -12,9 +13,15 @@ class PresentationRealtimeService {
   private lastSequence = 0
   private sequence = 0
   private callbacks = new Set<CommandCallback>()
+  private controllerConnectCallbacks = new Set<ControllerConnectedCallback>()
 
   connect(roomId: string, authorizedControllerId?: string | null) {
-    if (this.channel && this.roomId === roomId) return
+    if (this.channel && this.roomId === roomId) {
+      if (authorizedControllerId !== undefined) {
+        this.authorizedControllerId = authorizedControllerId
+      }
+      return
+    }
     this.disconnect()
 
     this.roomId = roomId
@@ -31,7 +38,18 @@ class PresentationRealtimeService {
         this.lastSequence = envelope.sequence
         for (const callback of this.callbacks) callback(envelope.command)
       })
+      .on('broadcast', { event: 'controller_connected' }, (message) => {
+        const payload = message.payload as { deviceId: string; role: string }
+        if (payload?.deviceId) {
+          this.authorizedControllerId = payload.deviceId
+          for (const cb of this.controllerConnectCallbacks) cb(payload)
+        }
+      })
       .subscribe()
+  }
+
+  setAuthorizedControllerId(id: string | null) {
+    this.authorizedControllerId = id
   }
 
   disconnect() {
@@ -41,6 +59,7 @@ class PresentationRealtimeService {
     this.authorizedControllerId = null
     this.lastSequence = 0
     this.callbacks.clear()
+    this.controllerConnectCallbacks.clear()
   }
 
   async send(command: PresentationCommand) {
@@ -60,9 +79,27 @@ class PresentationRealtimeService {
     })
   }
 
+  async broadcastControllerConnected(role: string = 'controller') {
+    if (!this.channel || !this.roomId) return
+    await this.channel.send({
+      type: 'broadcast',
+      event: 'controller_connected',
+      payload: {
+        roomId: this.roomId,
+        deviceId: getDeviceId(),
+        role,
+      },
+    })
+  }
+
   subscribe(callback: CommandCallback) {
     this.callbacks.add(callback)
     return () => this.callbacks.delete(callback)
+  }
+
+  onControllerConnected(callback: ControllerConnectedCallback) {
+    this.controllerConnectCallbacks.add(callback)
+    return () => this.controllerConnectCallbacks.delete(callback)
   }
 }
 

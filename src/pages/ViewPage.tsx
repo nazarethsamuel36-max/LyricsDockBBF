@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCurrentRoom, joinRoom } from '../services/RoomService'
+import { QRCodeSVG } from 'qrcode.react'
+import { getCurrentRoom, joinRoom, subscribeToRoomParticipants, getRoomParticipants, getDeviceId } from '../services/RoomService'
 import { getSongById } from '../services/DataService'
 import { db } from '../db/Database'
 import { PresentationRenderer } from '../presentation/PresentationRenderer'
@@ -64,7 +65,14 @@ function ViewPage() {
   const presentationRef = useRef<{ songId: number; density: 4 | 2; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
   const loadRequestRef = useRef(0)
   const displayRequestRef = useRef(0) // Unified request ID for all display operations
-  const isDirectRoomView = new URLSearchParams(window.location.search).has('room')
+  const searchParams = new URLSearchParams(window.location.search)
+  const isDirectRoomView = searchParams.has('room')
+  const isQrParam = searchParams.get('qr') === '1'
+  const roomParam = searchParams.get('room')
+  const currentRoom = getCurrentRoom()
+  const activePassword = (roomParam || currentRoom.password || '').toUpperCase()
+  const [showQrOverlay, setShowQrOverlay] = useState(isQrParam)
+  const qrJoinUrl = `${window.location.origin}/join/${activePassword}?role=controller`
 
   // ── Transparent background for OBS overlay ──────────────────────────────
   useEffect(() => {
@@ -162,6 +170,7 @@ function ViewPage() {
   }
 
   const handleRealtimeCommand = async (command: PresentationCommand) => {
+    setShowQrOverlay(false)
     setConnectionStatus('connected')
 
     if (command.type === 'CLEAR_SONG') {
@@ -207,6 +216,46 @@ function ViewPage() {
     showSlide(presentation, command.sectionIndex, command.slideIndex, 'SHOW_SLIDE')
   }
 
+  // ── Auto-dismiss QR overlay when a mobile controller connects ─────────────
+  useEffect(() => {
+    if (!showQrOverlay) return
+    const roomId = currentRoom.roomId
+    if (!roomId) return
+
+    const myDeviceId = getDeviceId()
+
+    const checkForController = (participants: { device_type: string; device_id: string }[]) => {
+      const hasOtherController = participants.some(
+        (p) => p.device_type === 'controller' && p.device_id !== myDeviceId
+      )
+      if (hasOtherController) {
+        setShowQrOverlay(false)
+      }
+    }
+
+    void getRoomParticipants(roomId).then(checkForController)
+
+    const unsubParticipants = subscribeToRoomParticipants(roomId, (participant) => {
+      if (participant.device_type === 'controller' && participant.device_id !== myDeviceId) {
+        setShowQrOverlay(false)
+      }
+    })
+
+    const unsubBroadcast = presentationRealtime.onControllerConnected(() => {
+      setShowQrOverlay(false)
+    })
+
+    const interval = setInterval(() => {
+      void getRoomParticipants(roomId).then(checkForController)
+    }, 2000)
+
+    return () => {
+      unsubParticipants()
+      unsubBroadcast()
+      clearInterval(interval)
+    }
+  }, [showQrOverlay, currentRoom.roomId])
+
   // ── Connection setup ──────────────────────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -215,7 +264,7 @@ function ViewPage() {
 
     // Priority 1: if this device created the room, keep it on the presentation screen.
     if (currentRoom.roomId && currentRoom.isOwner) {
-      presentationRealtime.connect(currentRoom.roomId, currentRoom.ownerDeviceId)
+      presentationRealtime.connect(currentRoom.roomId)
       presentationRealtime.subscribe(handleRealtimeCommand)
       setConnectionStatus('connected')
     }
@@ -225,7 +274,7 @@ function ViewPage() {
       setConnectionStatus('connecting')
       joinRoom(roomParam.toUpperCase()).then((room) => {
         if (room) {
-          presentationRealtime.connect(room.id, room.owner_id)
+          presentationRealtime.connect(room.id)
           presentationRealtime.subscribe(handleRealtimeCommand)
           setConnectionStatus('connected')
         } else {
@@ -236,7 +285,7 @@ function ViewPage() {
       // Priority 3: Already in a room via localStorage as a viewer
       const { roomId, isOwner } = currentRoom
       if (roomId && !isOwner) {
-        presentationRealtime.connect(roomId, currentRoom.ownerDeviceId)
+        presentationRealtime.connect(roomId)
         presentationRealtime.subscribe(handleRealtimeCommand)
         setConnectionStatus('connected')
       } else {
@@ -353,6 +402,70 @@ function ViewPage() {
         <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
         <span className="text-[10px] text-white font-mono">{statusLabel}</span>
       </div>
+
+      {/* Pair Mobile Controller QR Modal */}
+      {showQrOverlay && activePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-300 animate-[fadeIn_0.25s_ease-out]">
+          <div className="relative flex flex-col items-center bg-[#16161a] border border-zinc-700/80 shadow-2xl rounded-2xl p-6 sm:p-8 max-w-sm w-full mx-4 text-center">
+            {/* Close / Dismiss button */}
+            <button
+              onClick={() => setShowQrOverlay(false)}
+              className="absolute top-3.5 right-3.5 p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+              title="Dismiss QR Code"
+              aria-label="Close QR overlay"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-950/70 border border-indigo-700/60 rounded-full text-indigo-300 text-xs font-medium mb-3">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+              Pair Mobile Controller
+            </div>
+
+            {/* Header */}
+            <h3 className="text-xl font-bold text-white mb-1">
+              Scan to Control
+            </h3>
+            <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
+              Scan with your phone to control lyrics live
+            </p>
+
+            {/* QR Code SVG */}
+            <div className="bg-white p-3.5 rounded-xl shadow-lg mb-4">
+              <QRCodeSVG
+                value={qrJoinUrl}
+                size={180}
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+
+            {/* Room Password */}
+            <div className="bg-[#0f0f12] border border-zinc-800 rounded-lg px-4 py-2.5 mb-3 w-full flex items-center justify-between">
+              <span className="text-xs text-zinc-400">Room Code:</span>
+              <span className="font-mono text-base font-bold text-indigo-400 tracking-widest">
+                {activePassword}
+              </span>
+            </div>
+
+            {/* Live connection status */}
+            <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <div className="w-2 h-2 border-2 border-zinc-500 border-t-indigo-400 rounded-full animate-spin"></div>
+              <span>Waiting for mobile to connect...</span>
+            </div>
+
+            <button
+              onClick={() => setShowQrOverlay(false)}
+              className="mt-4 text-xs text-zinc-500 hover:text-zinc-300 underline underline-offset-4 transition-colors cursor-pointer"
+            >
+              Skip and open presentation now
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeIn {

@@ -317,3 +317,45 @@ export async function endRoom(roomId: string): Promise<boolean> {
     return false
   }
 }
+
+// Get active room participants
+export async function getRoomParticipants(roomId: string): Promise<RoomParticipant[]> {
+  try {
+    const { data, error } = await supabase
+      .from('room_participants')
+      .select('*')
+      .eq('room_id', roomId)
+    if (error) return []
+    return data ?? []
+  } catch {
+    return []
+  }
+}
+
+// Subscribe to room participants joining
+export function subscribeToRoomParticipants(
+  roomId: string,
+  onParticipantJoined: (participant: RoomParticipant) => void
+): () => void {
+  const channel = supabase
+    .channel(`room_participants_${roomId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'room_participants',
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => {
+        if (payload.new) {
+          onParticipantJoined(payload.new as RoomParticipant)
+        }
+      }
+    )
+    .subscribe()
+
+  return () => {
+    void supabase.removeChannel(channel)
+  }
+}
