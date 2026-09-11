@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { createRoom, joinRoom } from '../services/RoomService'
@@ -15,9 +15,28 @@ function LandingPage() {
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null)
 
+  const [quickStartPassword, setQuickStartPassword] = useState<string | null>(null)
+
   const base = window.location.origin
   const controllerUrl = `${base}/controller`
   const viewUrl = `${base}/view`
+  const quickStartUrl = quickStartPassword
+    ? `${base}/join/${quickStartPassword}?role=controller`
+    : `${base}/?start-room=1`
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const shouldAutoCreate = params.get('start-room') === '1'
+
+    if (shouldAutoCreate) {
+      void handleCreateRoom()
+    }
+
+    const storedPassword = localStorage.getItem('worship_runtime_current_room_password')
+    if (storedPassword) {
+      setQuickStartPassword(storedPassword)
+    }
+  }, [])
 
   const handleCopy = (url: string, type: string) => {
     navigator.clipboard.writeText(url)
@@ -32,6 +51,7 @@ function LandingPage() {
     const result = await createRoom()
     
     if (result) {
+      setQuickStartPassword(result.password)
       // Navigate to controller with room context
       navigate('/controller')
     } else {
@@ -93,6 +113,40 @@ function LandingPage() {
           <p className="text-sm text-zinc-500 mb-12">
             Presentation Controller System
           </p>
+
+          {/* Quick Start QR */}
+          <div className="w-full mb-6 bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-medium text-zinc-200">
+                Quick Start QR
+              </h2>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                Scan to join
+              </span>
+            </div>
+
+            <div className="flex justify-center mb-3">
+              <div className="bg-white p-3 rounded-lg">
+                <QRCodeSVG
+                  value={quickStartUrl}
+                  size={150}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            </div>
+
+            <code className="block text-[10px] text-zinc-400 mb-3 break-all text-center">
+              {quickStartUrl}
+            </code>
+
+            <button
+              onClick={() => handleCopy(quickStartUrl, 'quickstart')}
+              className="w-full px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium transition-colors"
+            >
+              {copied === 'quickstart' ? 'Copied!' : 'Copy QR Link'}
+            </button>
+          </div>
 
           {/* Presentation Room */}
           <div className="w-full mb-6">

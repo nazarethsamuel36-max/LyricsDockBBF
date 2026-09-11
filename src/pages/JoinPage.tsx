@@ -16,11 +16,13 @@ function JoinPage() {
         return
       }
 
-      const room = await joinRoom(password.toUpperCase())
+      const params = new URLSearchParams(window.location.search)
+      const requestedRole = params.get('role') === 'controller' ? 'controller' : 'viewer'
+      const room = await joinRoom(password.toUpperCase(), requestedRole)
       
       if (room) {
-        // Successfully joined, navigate to view
-        navigate('/view')
+        // Successfully joined, navigate to the appropriate screen for the scanned role.
+        navigate(requestedRole === 'controller' ? '/controller' : '/view')
       } else {
         setError('Room not found or inactive')
         setIsJoining(false)
