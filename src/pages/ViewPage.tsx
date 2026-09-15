@@ -130,6 +130,8 @@ function ViewPage() {
     }
   }
 
+  const commandSequenceRef = useRef(0)
+
   const showSlide = (presentation: ReturnType<typeof PresentationRenderer.render>, sectionIndex: number, slideIndex: number, source: DisplaySource) => {
     const section = presentation.sections[sectionIndex]
     const slide = section?.slides[slideIndex]
@@ -142,14 +144,15 @@ function ViewPage() {
         slideExists: false,
         displayed: 'INVALID',
       }))
+      prevSlideKey.current = ''
       setCurrentSlide(null)
       return
     }
 
     const key = `${presentationRef.current?.songId}-${sectionIndex}-${slideIndex}`
     const prevKeyAtCheck = prevSlideKey.current
-    console.log('[ViewPage] showSlide CHECK:', source, { key, prevKeyAtCheck, willSkip: key === prevKeyAtCheck })
-    if (key === prevSlideKey.current) {
+    console.log('[ViewPage] showSlide CHECK:', source, { key, prevKeyAtCheck, willSkip: key === prevKeyAtCheck && currentSlide !== null })
+    if (key === prevSlideKey.current && currentSlide !== null) {
       console.log('[ViewPage] showSlide SKIPPED:', source, { key })
       return
     }
@@ -172,6 +175,7 @@ function ViewPage() {
   const handleRealtimeCommand = async (command: PresentationCommand) => {
     setShowQrOverlay(false)
     setConnectionStatus('connected')
+    const thisCommandId = ++commandSequenceRef.current
 
     if (command.type === 'CLEAR_SONG') {
       loadRequestRef.current += 1
@@ -184,6 +188,7 @@ function ViewPage() {
 
     if (command.type === 'SET_LIVE') {
       if (!command.live) {
+        prevSlideKey.current = '' // Reset so the same slide can immediately be re-shown
         setCurrentSlide(null)
         setDiagnostic(previous => ({ ...previous, status: previous.loadedSongId ? 'READY' : 'EMPTY', displayed: 'BLANK' }))
       }
@@ -202,6 +207,8 @@ function ViewPage() {
 
     // SHOW_SLIDE — primary display command
     const presentation = await ensurePresentation(command.songId, 2)
+    // If a newer command (like hide/blank or another slide) arrived while loading, cancel this one
+    if (commandSequenceRef.current !== thisCommandId) return
     if (!presentation) return
 
     setDiagnostic(previous => ({
