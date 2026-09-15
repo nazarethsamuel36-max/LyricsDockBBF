@@ -71,41 +71,25 @@ ALTER TABLE presentation_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_participants ENABLE ROW LEVEL SECURITY;
 
--- Required table privileges for the browser Supabase client
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE presentation_rooms TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_state TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_participants TO anon, authenticated;
-
--- Allow anyone to read active rooms (for joining)
-CREATE POLICY "Anyone can read active rooms"
-  ON presentation_rooms FOR SELECT
-  USING (is_active = true);
-
--- Required for createRoom(): the client inserts a new room directly
-CREATE POLICY "Anyone can insert rooms"
-  ON presentation_rooms FOR INSERT
-  WITH CHECK (true);
-
--- Allow anyone to read room state
-CREATE POLICY "Anyone can read room state"
-  ON room_state FOR SELECT
+-- Allow reading room state & participants (required for live presentation updates)
+CREATE POLICY "Public read room state"
+  ON room_state FOR SELECT TO public
   USING (true);
 
--- Allow anyone to insert room state (will be restricted by app logic)
-CREATE POLICY "Anyone can insert room state"
-  ON room_state FOR INSERT
-  WITH CHECK (true);
-
--- Allow anyone to update room state (will be restricted by app logic)
-CREATE POLICY "Anyone can update room state"
-  ON room_state FOR UPDATE
-  USING (true);
-
--- Allow anyone to manage participants
-CREATE POLICY "Anyone can manage participants"
-  ON room_participants FOR ALL
+CREATE POLICY "Public read participants"
+  ON room_participants FOR SELECT TO public
   USING (true);
 ```
+
+## Secure Stored Procedures (RPCs)
+
+All write and join operations are handled securely via PostgreSQL RPC functions with `SECURITY DEFINER`:
+
+1. `create_presentation_room(p_password, p_owner_id)` - Atomically inserts room, initial state, and registers owner.
+2. `join_presentation_room(p_password, p_device_id, p_device_type)` - Verifies password and registers participant without exposing other active room passwords.
+3. `update_presentation_state(p_room_id, p_owner_id, p_updates)` - Updates state only if caller matches room `owner_id`.
+4. `end_presentation_room(p_room_id, p_owner_id)` - Deactivates room only if caller matches room `owner_id`.
+5. `leave_presentation_room(p_room_id, p_device_id)` - Safely removes participant record.
 
 ## Sample SQL for Setup
 
@@ -156,41 +140,17 @@ ALTER TABLE presentation_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_participants ENABLE ROW LEVEL SECURITY;
 
--- Required table privileges for the browser Supabase client
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE presentation_rooms TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_state TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room_participants TO anon, authenticated;
-
--- Create policies
-CREATE POLICY "Anyone can read active rooms"
-  ON presentation_rooms FOR SELECT
-  USING (is_active = true);
-
-CREATE POLICY "Anyone can insert rooms"
-  ON presentation_rooms FOR INSERT
-  WITH CHECK (true);
-
-CREATE POLICY "Anyone can update rooms"
-  ON presentation_rooms FOR UPDATE
+-- Read policies
+CREATE POLICY "Public read room state"
+  ON room_state FOR SELECT TO public
   USING (true);
 
-CREATE POLICY "Anyone can read room state"
-  ON room_state FOR SELECT
-  USING (true);
-
-CREATE POLICY "Anyone can insert room state"
-  ON room_state FOR INSERT
-  WITH CHECK (true);
-
-CREATE POLICY "Anyone can update room state"
-  ON room_state FOR UPDATE
-  USING (true);
-
-CREATE POLICY "Anyone can manage participants"
-  ON room_participants FOR ALL
+CREATE POLICY "Public read participants"
+  ON room_participants FOR SELECT TO public
   USING (true);
 
 -- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE presentation_rooms;
 ALTER PUBLICATION supabase_realtime ADD TABLE room_state;
+ALTER PUBLICATION supabase_realtime ADD TABLE room_participants;
 ```

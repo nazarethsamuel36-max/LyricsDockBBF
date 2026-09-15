@@ -59,50 +59,15 @@ export async function createRoom(): Promise<{ room: PresentationRoom; password: 
     const deviceId = getDeviceId()
     const password = generateRoomPassword()
     
-    // Create the room
-    const { data: room, error: roomError } = await supabase
-      .from('presentation_rooms')
-      .insert({
-        password,
-        owner_id: deviceId,
-        is_active: true
-      })
-      .select()
-      .single()
-    
-    if (roomError) {
-      console.error('Error creating room:', roomError)
-      return null
-    }
-    
-    // Initialize room state
-    const { error: stateError } = await supabase
-      .from('room_state')
-      .insert({
-        room_id: room.id,
-        current_song_id: null,
-        current_section_index: 0,
-        current_slide_index: 0,
-        live_song_id: null,
-        live_section_index: 0,
-        live_slide_index: 0,
-        is_live_active: false,
-        presentation_density: 4
-      })
-    
-    if (stateError) {
-      console.error('Error initializing room state:', stateError)
-      // Try to clean up the room if state creation failed
-      await supabase.from('presentation_rooms').delete().eq('id', room.id)
-      return null
-    }
-    
-    // Register owner as controller participant
-    await supabase.from('room_participants').insert({
-      room_id: room.id,
-      device_id: deviceId,
-      device_type: 'controller'
+    const { data: room, error } = await supabase.rpc('create_presentation_room', {
+      p_password: password,
+      p_owner_id: deviceId
     })
+    
+    if (error || !room) {
+      console.error('Error creating room:', error)
+      return null
+    }
     
     // Store current room info in localStorage
     localStorage.setItem('worship_runtime_current_room_id', room.id)
@@ -110,7 +75,7 @@ export async function createRoom(): Promise<{ room: PresentationRoom; password: 
     localStorage.setItem('worship_runtime_is_room_owner', 'true')
     localStorage.setItem('worship_runtime_room_owner_id', room.owner_id)
     
-    return { room, password }
+    return { room: room as PresentationRoom, password }
   } catch (error) {
     console.error('Error in createRoom:', error)
     return null
@@ -124,34 +89,14 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
     
     console.log('Attempting to join room with password:', password)
     
-    // Look up the active room directly so anonymous auth is not required.
-    const { data: room, error: roomError } = await supabase
-      .from('presentation_rooms')
-      .select('*')
-      .eq('password', password)
-      .eq('is_active', true)
-      .maybeSingle()
-    
-    if (roomError) {
-      console.error('Room not found or error:', roomError)
-      return null
-    }
-    
-    if (!room) {
-      console.error('No room found with password:', password)
-      return null
-    }
-    
-    console.log('Found room:', room.id)
-
-    const { error: participantError } = await supabase.from('room_participants').insert({
-      room_id: room.id,
-      device_id: deviceId,
-      device_type: deviceType
+    const { data: room, error } = await supabase.rpc('join_presentation_room', {
+      p_password: password,
+      p_device_id: deviceId,
+      p_device_type: deviceType
     })
-
-    if (participantError) {
-      console.error('Error registering participant:', participantError)
+    
+    if (error || !room) {
+      console.error('Room not found or error:', error)
       return null
     }
     
@@ -163,7 +108,7 @@ export async function joinRoom(password: string, deviceType: 'controller' | 'vie
     localStorage.setItem('worship_runtime_room_owner_id', room.owner_id)
     
     console.log('Successfully joined room:', room.id)
-    return room
+    return room as PresentationRoom
   } catch (error) {
     console.error('Error in joinRoom:', error)
     return null
@@ -178,12 +123,11 @@ export async function leaveRoom(): Promise<void> {
     
     if (!roomId) return
     
-    // Remove participant record
-    await supabase
-      .from('room_participants')
-      .delete()
-      .eq('room_id', roomId)
-      .eq('device_id', deviceId)
+    // Remove participant record via secure RPC
+    await supabase.rpc('leave_presentation_room', {
+      p_room_id: roomId,
+      p_device_id: deviceId
+    })
     
     // Clear local storage
     localStorage.removeItem('worship_runtime_current_room_id')
@@ -238,15 +182,14 @@ export async function updateRoomState(roomId: string, updates: Partial<RoomState
       return false
     }
     
-    const { error } = await supabase
-      .from('room_state')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('room_id', roomId)
+    const deviceId = getDeviceId()
+    const { data: success, error } = await supabase.rpc('update_presentation_state', {
+      p_room_id: roomId,
+      p_owner_id: deviceId,
+      p_updates: updates
+    })
     
-    if (error) {
+    if (error || !success) {
       console.error('Error updating room state:', error)
       return false
     }
@@ -297,13 +240,13 @@ export async function endRoom(roomId: string): Promise<boolean> {
       return false
     }
     
-    // Mark room as inactive
-    const { error } = await supabase
-      .from('presentation_rooms')
-      .update({ is_active: false })
-      .eq('id', roomId)
+    const deviceId = getDeviceId()
+    const { data: success, error } = await supabase.rpc('end_presentation_room', {
+      p_room_id: roomId,
+      p_owner_id: deviceId
+    })
     
-    if (error) {
+    if (error || !success) {
       console.error('Error ending room:', error)
       return false
     }
