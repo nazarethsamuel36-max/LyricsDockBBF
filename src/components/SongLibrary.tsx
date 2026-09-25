@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { getSongs } from '../services/DataService'
 import { SearchEngine } from '../utils/SearchEngine'
+import { formatSongNumber } from '../utils/SongFormatter'
 import type { SongIndex } from '../db/Database'
 
 interface SongLibraryProps {
@@ -72,8 +73,8 @@ function SongLibrary({ onSongSelect }: SongLibraryProps) {
                 className="flex items-center gap-3 px-4 py-3 active:bg-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer transition-colors"
               >
                 {/* Song number */}
-                <span className="flex-shrink-0 w-10 text-right text-xs font-mono text-zinc-500 tabular-nums">
-                  #{song.songNumber}
+                <span className="flex-shrink-0 w-16 text-right text-xs font-mono font-semibold text-zinc-400 tabular-nums">
+                  {formatSongNumber(song.language, song.songNumber)}
                 </span>
 
                 {/* Title + language */}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { db } from '../db/Database'
+import { formatSongNumber } from '../utils/SongFormatter'
 import type { SetlistItem } from '../db/Database'
 
 interface SetlistPanelProps {
@@ -13,7 +14,7 @@ function SetlistPanel({ onSongSelect }: SetlistPanelProps) {
   const reorderSetlist = useStore((s) => s.reorderSetlist)
   const currentSongId = useStore((s) => s.currentSongId)
   const setCurrentSongId = useStore((s) => s.setCurrentSongId)
-  const [songDetails, setSongDetails] = useState<Record<number, { songNumber: number; title: string }>>({})
+  const [songDetails, setSongDetails] = useState<Record<number, { songNumber: number; language?: string; title: string }>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -28,9 +29,9 @@ function SetlistPanel({ onSongSelect }: SetlistPanelProps) {
 
     db.songIndex.bulkGet(songIds).then((songs) => {
       if (cancelled) return
-      const details: Record<number, { songNumber: number; title: string }> = {}
+      const details: Record<number, { songNumber: number; language?: string; title: string }> = {}
       songs.forEach((song) => {
-        if (song) details[song.id] = { songNumber: song.songNumber, title: song.title }
+        if (song) details[song.id] = { songNumber: song.songNumber, language: song.language, title: song.title }
       })
       setSongDetails(details)
     })
@@ -109,7 +110,7 @@ function SetlistPanel({ onSongSelect }: SetlistPanelProps) {
                       {item.type === 'marker'
                         ? item.label
                         : songDetails[item.songId ?? -1]
-                          ? `${songDetails[item.songId ?? -1].songNumber}. ${songDetails[item.songId ?? -1].title}`
+                          ? `${formatSongNumber(songDetails[item.songId ?? -1].language, songDetails[item.songId ?? -1].songNumber)} · ${songDetails[item.songId ?? -1].title}`
                           : `Song #${item.songId}`}
                     </div>
                     {item.transpose && item.transpose !== 0 && (
