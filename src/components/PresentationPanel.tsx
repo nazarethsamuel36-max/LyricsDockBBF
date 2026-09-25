@@ -9,7 +9,7 @@ function PresentationPanel() {
   const currentSongId = useStore((s) => s.currentSongId)
   const currentSectionIndex = useStore((s) => s.currentSectionIndex)
   const currentSlideIndex = useStore((s) => s.currentSlideIndex)
-  const presentationDensity = 2
+  const presentationDensity = useStore((s) => s.presentationDensity)
   const setCurrentSectionIndex = useStore((s) => s.setCurrentSectionIndex)
   const setCurrentSlideIndex = useStore((s) => s.setCurrentSlideIndex)
   const resetPresentation = useStore((s) => s.resetPresentation)

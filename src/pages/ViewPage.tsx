@@ -62,7 +62,7 @@ function ViewPage() {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'broadcast' | 'error'>('connecting')
   const prevSlideKey = useRef<string>('')
   const joinedRef = useRef(false)
-  const presentationRef = useRef<{ songId: number; density: 4 | 2; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
+  const presentationRef = useRef<{ songId: number; density: 4 | 2 | 1; presentation: ReturnType<typeof PresentationRenderer.render> } | null>(null)
   const loadRequestRef = useRef(0)
   const displayRequestRef = useRef(0) // Unified request ID for all display operations
   const searchParams = new URLSearchParams(window.location.search)
@@ -85,7 +85,7 @@ function ViewPage() {
   }, [])
 
   // Load and render only when the song or density changes. Slide changes are RAM lookups.
-  const ensurePresentation = async (songId: number, density: 4 | 2, requestId?: number) => {
+  const ensurePresentation = async (songId: number, density: 4 | 2 | 1 = 1, requestId?: number) => {
     setDiagnostic(previous => ({
       ...previous,
       requestedSongId: songId,
@@ -201,12 +201,12 @@ function ViewPage() {
       presentationRef.current = null
       prevSlideKey.current = ''
       setDiagnostic(previous => ({ ...previous, requestedSongId: command.songId, requestedSlideExists: null, slideExists: null }))
-      await ensurePresentation(command.songId, 2) // Only prepare, don't show
+      await ensurePresentation(command.songId, 1) // Only prepare, don't show
       return
     }
 
     // SHOW_SLIDE — primary display command
-    const presentation = await ensurePresentation(command.songId, 2)
+    const presentation = await ensurePresentation(command.songId, 1)
     // If a newer command (like hide/blank or another slide) arrived while loading, cancel this one
     if (commandSequenceRef.current !== thisCommandId) return
     if (!presentation) return
@@ -385,7 +385,7 @@ function ViewPage() {
             {currentSlide.lines.map((line, index) => (
               <div
                 key={index}
-                className="presentation-lyrics text-[42px] font-semibold leading-snug text-white"
+                className="presentation-lyrics text-[60px] font-semibold leading-snug text-white"
                 style={{
                   // Layered shadow keeps white lyrics readable over bright backgrounds.
                   textShadow: `

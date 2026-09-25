@@ -35,8 +35,8 @@ interface StoreState {
   setCurrentSectionIndex: (index: number) => void;
   setCurrentSlideIndex: (index: number) => void;
   resetPresentation: () => void;
-  presentationDensity: 4 | 2;
-  setPresentationDensity: (density: 4 | 2) => void;
+  presentationDensity: 4 | 2 | 1;
+  setPresentationDensity: (density: 4 | 2 | 1) => void;
   
   // Live states
   liveSongId: number | null;
@@ -103,7 +103,7 @@ export const useStore = create<StoreState>((set) => ({
       channel.postMessage({ type: 'resetPresentation' })
     }
   },
-  presentationDensity: 2,
+  presentationDensity: 1,
   setPresentationDensity: (density) => {
     set({ presentationDensity: density })
     

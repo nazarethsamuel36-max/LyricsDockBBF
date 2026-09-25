@@ -11,7 +11,7 @@ export class PresentationRenderer {
    * @param display - The raw display text from the song
    * @param density - Maximum lines per slide (4 or 2)
    */
-  static render(display: string, density: 4 | 2 = 4): Presentation {
+  static render(display: string, density: 4 | 2 | 1 = 1): Presentation {
     const stanzas = this.parseStanzas(display);
     const sections = this.buildSections(stanzas, density);
     
@@ -88,9 +88,9 @@ export class PresentationRenderer {
   /**
    * Build sections from stanzas with slide generation
    * @param stanzas - Parsed stanzas from display text
-   * @param density - Maximum lines per slide (4 or 2)
+   * @param density - Maximum lines per slide (4 or 2 or 1)
    */
-  private static buildSections(stanzas: Stanza[], density: 4 | 2): Section[] {
+  private static buildSections(stanzas: Stanza[], density: 4 | 2 | 1): Section[] {
     const sections: Section[] = [];
     
     for (const stanza of stanzas) {
@@ -110,13 +110,21 @@ export class PresentationRenderer {
   /**
    * Generate slides from stanza lines
    * @param lines - Lyric lines from a stanza
-   * @param density - Maximum lines per slide (4 or 2)
+   * @param density - Maximum lines per slide (4, 2, or 1)
+   * 1-line mode: 1 line per slide
    * 4-line mode: balanced distribution
    * 2-line mode: simple chunking for maximum readability
    */
-  private static generateSlides(lines: string[], density: 4 | 2): Slide[] {
+  private static generateSlides(lines: string[], density: 4 | 2 | 1): Slide[] {
     if (lines.length === 0) return [];
     
+    // 1-line mode: 1 line per slide
+    if (density === 1) {
+      return lines.map(text => ({
+        lines: [{ text }]
+      }));
+    }
+
     // 2-line mode: simple chunking for maximum readability
     if (density === 2) {
       const slides: Slide[] = [];
