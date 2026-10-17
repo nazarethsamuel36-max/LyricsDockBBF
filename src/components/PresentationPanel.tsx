@@ -4,6 +4,7 @@ import { PresentationRenderer } from '../presentation/PresentationRenderer'
 import type { Presentation } from '../presentation/PresentationTypes'
 import { getSongById } from '../services/DataService'
 import { getCurrentRoom, getDeviceId } from '../services/RoomService'
+import { presentationRealtime } from '../services/PresentationRealtimeService'
 
 function PresentationPanel() {
   const currentSongId = useStore((s) => s.currentSongId)
@@ -28,6 +29,14 @@ function PresentationPanel() {
   const [loading, setLoading] = useState(false)
   const [songTitle, setSongTitle] = useState<string>('')
 
+  // ── Pre-connect Realtime Channel on Mount ────────────────────────────────
+  useEffect(() => {
+    const { roomId } = getCurrentRoom()
+    if (roomId) {
+      presentationRealtime.connect(roomId)
+    }
+  }, [])
+
   // ── Auto Scroll Active Slide ─────────────────────────────────────────────
   useEffect(() => {
     const activeEl = document.getElementById(`slide-${currentSectionIndex}-${currentSlideIndex}`)
@@ -48,7 +57,6 @@ function PresentationPanel() {
         } else {
           // If not live, toggle ON for currently selected slide
           setLiveSlide(currentSongId, currentSectionIndex, currentSlideIndex)
-          setIsLiveActive(true)
         }
         return
       }
@@ -231,7 +239,6 @@ function PresentationPanel() {
     } else {
       // Click a new (or inactive) slide → make it live
       setLiveSlide(currentSongId, sectionIndex, slideIndex)
-      setIsLiveActive(true)
     }
   }
 

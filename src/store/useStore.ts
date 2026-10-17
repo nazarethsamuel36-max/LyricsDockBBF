@@ -117,7 +117,7 @@ export const useStore = create<StoreState>((set) => ({
   liveSectionIndex: 0,
   liveSlideIndex: 0,
   setLiveSlide: (songId, sectionIndex, slideIndex) => {
-    set({ liveSongId: songId, liveSectionIndex: sectionIndex, liveSlideIndex: slideIndex })
+    set({ liveSongId: songId, liveSectionIndex: sectionIndex, liveSlideIndex: slideIndex, isLiveActive: true })
 
     if (songId !== null) {
       sendRealtimeCommand({ type: 'SHOW_SLIDE', songId, sectionIndex, slideIndex })
@@ -136,7 +136,11 @@ export const useStore = create<StoreState>((set) => ({
       liveSlideIndex: 0,
     })
 
-    sendRealtimeCommand({ type: 'SET_LIVE', live: active })
+    // Only broadcast SET_LIVE when turning live OFF (blanking screen)
+    // Going live is already handled cleanly by SHOW_SLIDE without network race conditions
+    if (!active) {
+      sendRealtimeCommand({ type: 'SET_LIVE', live: false })
+    }
     
     if (!isRoomActive() && !isBroadcasting) {
       channel.postMessage({ type: 'isLiveActive', value: active })

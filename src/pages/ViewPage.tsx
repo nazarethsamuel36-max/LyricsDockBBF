@@ -175,9 +175,9 @@ function ViewPage() {
   const handleRealtimeCommand = async (command: PresentationCommand) => {
     setShowQrOverlay(false)
     setConnectionStatus('connected')
-    const thisCommandId = ++commandSequenceRef.current
 
     if (command.type === 'CLEAR_SONG') {
+      commandSequenceRef.current += 1
       loadRequestRef.current += 1
       presentationRef.current = null
       prevSlideKey.current = ''
@@ -188,11 +188,11 @@ function ViewPage() {
 
     if (command.type === 'SET_LIVE') {
       if (!command.live) {
+        commandSequenceRef.current += 1
         prevSlideKey.current = '' // Reset so the same slide can immediately be re-shown
         setCurrentSlide(null)
         setDiagnostic(previous => ({ ...previous, status: previous.loadedSongId ? 'READY' : 'EMPTY', displayed: 'BLANK' }))
       }
-      // SET_LIVE(true) is a no-op — SHOW_SLIDE broadcast carries the slide info and handles display
       return
     }
 
@@ -206,6 +206,7 @@ function ViewPage() {
     }
 
     // SHOW_SLIDE — primary display command
+    const thisCommandId = ++commandSequenceRef.current
     const presentation = await ensurePresentation(command.songId, 1)
     // If a newer command (like hide/blank or another slide) arrived while loading, cancel this one
     if (commandSequenceRef.current !== thisCommandId) return

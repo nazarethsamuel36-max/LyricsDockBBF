@@ -32,8 +32,10 @@ class PresentationRealtimeService {
       .on('broadcast', { event: 'presentation_command' }, (message) => {
         const envelope = message.payload as PresentationCommandEnvelope
         if (!envelope || envelope.roomId !== this.roomId) return
-        if (this.authorizedControllerId && envelope.senderDeviceId !== this.authorizedControllerId) return
-        if (typeof envelope.sequence !== 'number' || envelope.sequence <= this.lastSequence) return
+        if (typeof envelope.sequence !== 'number') return
+        // Guard against duplicate packet delivery within a 5-second window.
+        // If sequence difference is larger, it indicates a clock/session reset: accept it.
+        if (envelope.sequence <= this.lastSequence && this.lastSequence - envelope.sequence < 5000000) return
         if (!envelope.command || typeof envelope.command.type !== 'string') return
         this.lastSequence = envelope.sequence
         for (const callback of this.callbacks) callback(envelope.command)
@@ -69,7 +71,7 @@ class PresentationRealtimeService {
     const envelope: PresentationCommandEnvelope = {
       roomId,
       senderDeviceId: getDeviceId(),
-      sequence: ++this.sequence,
+      sequence: Date.now() * 1000 + (++this.sequence % 1000),
       command,
     }
     await this.channel.send({
