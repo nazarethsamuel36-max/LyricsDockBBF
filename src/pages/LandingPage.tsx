@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRoom, joinRoom } from '../services/RoomService'
 import { batchDownloadSongs } from '../services/DataService'
+
+const QrScanner = lazy(() => import('../components/QrScanner'))
 
 function LandingPage() {
   const navigate = useNavigate()
@@ -10,6 +12,7 @@ function LandingPage() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false)
   const [isCreatingQrRoom, setIsCreatingQrRoom] = useState(false)
   const [isJoiningRoom, setIsJoiningRoom] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [roomError, setRoomError] = useState<string | null>(null)
   const [isDownloadingSongs, setIsDownloadingSongs] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
@@ -76,6 +79,21 @@ function LandingPage() {
     setIsJoiningRoom(false)
   }
 
+  const handleQrScan = (value: string) => {
+    setIsScannerOpen(false)
+
+    try {
+      const scannedUrl = new URL(value)
+      const match = scannedUrl.pathname.match(/^\/join\/([a-z0-9-]+)\/?$/i)
+      if (!match) throw new Error('Invalid room QR code')
+
+      const role = scannedUrl.searchParams.get('role') === 'viewer' ? 'viewer' : 'controller'
+      navigate(`/join/${encodeURIComponent(match[1])}?role=${role}`)
+    } catch {
+      setRoomError('This QR code is not a valid room link. Enter the room password instead.')
+    }
+  }
+
   const handleDownloadSongs = async () => {
     setIsDownloadingSongs(true)
     setDownloadProgress(0)
@@ -114,28 +132,29 @@ function LandingPage() {
               Presentation Room
             </h2>
             <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80 space-y-3">
-              <button
-                onClick={handleCreateQrRoom}
-                disabled={isCreatingQrRoom || isCreatingRoom}
-                className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/40"
-              >
-                {isCreatingQrRoom ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Creating QR Room...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="3" width="7" height="7" rx="1" />
-                      <rect x="14" y="3" width="7" height="7" rx="1" />
-                      <rect x="3" y="14" width="7" height="7" rx="1" />
-                      <path d="M14 14h3v3h-3zM17 17h4v4h-4zM14 20h3v1h-3zM20 14h1v3h-1z" />
-                    </svg>
-                    Create QR
-                  </>
-                )}
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleCreateQrRoom}
+                  disabled={isCreatingQrRoom || isCreatingRoom}
+                  className="min-h-12 rounded-lg bg-indigo-600 px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition-colors hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500"
+                >
+                  {isCreatingQrRoom ? 'Creating...' : 'Create QR'}
+                </button>
+                <button
+                  onClick={() => {
+                    setRoomError(null)
+                    setIsScannerOpen(true)
+                  }}
+                  disabled={isCreatingQrRoom || isCreatingRoom}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-zinc-700 px-3 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500"
+                >
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2" />
+                    <path d="M8 8h3v3H8zM15 8h1M8 15h1M14 14h3v3h-3z" />
+                  </svg>
+                  Scan QR
+                </button>
+              </div>
 
               <button
                 onClick={handleCreateRoom}
@@ -252,6 +271,14 @@ function LandingPage() {
 
         </div>
       </div>
+      {isScannerOpen && (
+        <Suspense fallback={null}>
+          <QrScanner
+            onScan={handleQrScan}
+            onClose={() => setIsScannerOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
 
   )
