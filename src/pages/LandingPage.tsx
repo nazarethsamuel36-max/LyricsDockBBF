@@ -1,22 +1,15 @@
 import { lazy, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createRoom, joinRoom } from '../services/RoomService'
-import { batchDownloadSongs } from '../services/DataService'
+import { createRoom } from '../services/RoomService'
 
 const QrScanner = lazy(() => import('../components/QrScanner'))
 
 function LandingPage() {
   const navigate = useNavigate()
   const [copied, setCopied] = useState<string | null>(null)
-  const [roomPassword, setRoomPassword] = useState('')
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false)
   const [isCreatingQrRoom, setIsCreatingQrRoom] = useState(false)
-  const [isJoiningRoom, setIsJoiningRoom] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [roomError, setRoomError] = useState<string | null>(null)
-  const [isDownloadingSongs, setIsDownloadingSongs] = useState(false)
-  const [downloadProgress, setDownloadProgress] = useState(0)
-  const [downloadMessage, setDownloadMessage] = useState<string | null>(null)
 
   const base = window.location.origin
   const controllerUrl = `${base}/controller`
@@ -26,21 +19,6 @@ function LandingPage() {
     navigator.clipboard.writeText(url)
     setCopied(type)
     setTimeout(() => setCopied(null), 2000)
-  }
-
-  const handleCreateRoom = async () => {
-    setIsCreatingRoom(true)
-    setRoomError(null)
-    
-    const result = await createRoom()
-    
-    if (result) {
-      navigate(`/view?room=${result.password}`)
-    } else {
-      setRoomError('Failed to create room. Please try again.')
-    }
-    
-    setIsCreatingRoom(false)
   }
 
   const handleCreateQrRoom = async () => {
@@ -58,27 +36,6 @@ function LandingPage() {
     setIsCreatingQrRoom(false)
   }
 
-  const handleJoinRoom = async () => {
-    if (!roomPassword.trim()) {
-      setRoomError('Please enter a room password')
-      return
-    }
-    
-    setIsJoiningRoom(true)
-    setRoomError(null)
-    
-    const room = await joinRoom(roomPassword.trim().toUpperCase())
-    
-    if (room) {
-      // Navigate to view as a receiver
-      navigate('/view')
-    } else {
-      setRoomError('Room not found or inactive. Please check the password.')
-    }
-    
-    setIsJoiningRoom(false)
-  }
-
   const handleQrScan = (value: string) => {
     setIsScannerOpen(false)
 
@@ -90,27 +47,8 @@ function LandingPage() {
       const role = scannedUrl.searchParams.get('role') === 'viewer' ? 'viewer' : 'controller'
       navigate(`/join/${encodeURIComponent(match[1])}?role=${role}`)
     } catch {
-      setRoomError('This QR code is not a valid room link. Enter the room password instead.')
+      setRoomError('Invalid room QR code. Scan a room QR code to connect.')
     }
-  }
-
-  const handleDownloadSongs = async () => {
-    setIsDownloadingSongs(true)
-    setDownloadProgress(0)
-    setDownloadMessage('Preparing download...')
-
-    const result = await batchDownloadSongs((percent, message) => {
-      setDownloadProgress(percent)
-      setDownloadMessage(message)
-    })
-
-    if (result === 'completed' || result === 'skipped') {
-      setDownloadProgress(100)
-      setDownloadMessage(result === 'skipped' ? 'Songs are already ready in IndexedDB.' : 'All songs are ready in IndexedDB.')
-    } else {
-      setDownloadMessage('Download failed. Check your internet connection and try again.')
-    }
-    setIsDownloadingSongs(false)
   }
 
   return (
@@ -135,7 +73,7 @@ function LandingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleCreateQrRoom}
-                  disabled={isCreatingQrRoom || isCreatingRoom}
+                  disabled={isCreatingQrRoom}
                   className="min-h-12 rounded-lg bg-indigo-600 px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition-colors hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500"
                 >
                   {isCreatingQrRoom ? 'Creating...' : 'Create QR'}
@@ -145,7 +83,7 @@ function LandingPage() {
                     setRoomError(null)
                     setIsScannerOpen(true)
                   }}
-                  disabled={isCreatingQrRoom || isCreatingRoom}
+                  disabled={isCreatingQrRoom}
                   className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-zinc-700 px-3 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500"
                 >
                   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -156,67 +94,6 @@ function LandingPage() {
                 </button>
               </div>
 
-              <button
-                onClick={handleCreateRoom}
-                disabled={isCreatingRoom || isCreatingQrRoom}
-                className="w-full px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
-              >
-                {isCreatingRoom ? 'Creating Room...' : 'Create Room'}
-              </button>
-            </div>
-          </div>
-
-          {/* Join Room */}
-          <div className="w-full mb-6 bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
-            <label className="block text-xs text-zinc-400 mb-2">
-              Enter Room Password
-            </label>
-            <input
-              type="text"
-              value={roomPassword}
-              onChange={(e) => setRoomPassword(e.target.value.toUpperCase())}
-              placeholder="CHURCH24"
-              className="w-full px-4 py-2.5 bg-[#121214] rounded-lg text-sm text-zinc-200 placeholder-zinc-500 border border-zinc-800/80 focus:outline-none focus:border-zinc-700 transition-all uppercase"
-              maxLength={8}
-            />
-            <button
-              onClick={handleJoinRoom}
-              disabled={isJoiningRoom}
-              className="w-full mt-3 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 rounded-lg text-sm font-medium transition-colors"
-            >
-              {isJoiningRoom ? 'Joining Room...' : 'Join Room'}
-            </button>
-            {roomError && (
-              <p className="mt-3 text-xs text-red-400 text-center">
-                {roomError}
-              </p>
-            )}
-          </div>
-
-          {/* Offline Song Download */}
-          <div className="w-full mb-8">
-            <h2 className="text-lg font-medium text-zinc-200 mb-3">
-              Offline Songs
-            </h2>
-            <div className="bg-[#1a1a1e] rounded-xl p-4 border border-zinc-800/80">
-              <p className="text-xs text-zinc-500 mb-3">
-                Download songs to this device so presentation loading can use IndexedDB.
-              </p>
-              <button
-                onClick={handleDownloadSongs}
-                disabled={isDownloadingSongs}
-                className="w-full px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {isDownloadingSongs ? `Downloading ${downloadProgress}%...` : 'Download Songs'}
-              </button>
-              {downloadMessage && (
-                <div className="mt-3">
-                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${downloadProgress}%` }} />
-                  </div>
-                  <p className="mt-2 text-xs text-zinc-400">{downloadMessage}</p>
-                </div>
-              )}
             </div>
           </div>
 
