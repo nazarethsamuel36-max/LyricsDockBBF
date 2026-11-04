@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import JoinPage from './pages/JoinPage'
@@ -6,8 +7,19 @@ import SetlistPage from './pages/SetlistPage'
 import SongPresenterPage from './pages/SongPresenterPage'
 import ViewPage from './pages/ViewPage'
 import RoomInfoPage from './pages/RoomInfoPage'
+import { wakeUpSync } from './services/DataService'
 
 function App() {
+  useEffect(() => {
+    void wakeUpSync()
+
+    const handleOnline = () => {
+      void wakeUpSync('online-event')
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
