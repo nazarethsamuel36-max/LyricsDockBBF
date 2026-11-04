@@ -4,6 +4,7 @@ import { SearchEngine } from '../utils/SearchEngine';
 
 const CATALOG_SYNC_ID = 'song-catalog';
 const EXPORTS_BASE_URL = '/exports';
+const LANGUAGE_ORDER = ['english', 'hindi', 'marathi', 'konkani', 'bengali'];
 
 type SyncTrigger = 'app-start' | 'online-event' | 'manual';
 
@@ -23,6 +24,21 @@ async function fetchExport<T>(path: string): Promise<T> {
   const response = await fetch(`${EXPORTS_BASE_URL}/${path}`, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`Failed to load ${path}: HTTP ${response.status}`);
   return response.json() as Promise<T>;
+}
+
+function sortSongIndex(songs: SongIndex[]): SongIndex[] {
+  return [...songs].sort((a, b) => {
+    const languageA = (a.language || '').toLowerCase();
+    const languageB = (b.language || '').toLowerCase();
+    const rankA = LANGUAGE_ORDER.indexOf(languageA);
+    const rankB = LANGUAGE_ORDER.indexOf(languageB);
+    const orderedRankA = rankA === -1 ? LANGUAGE_ORDER.length : rankA;
+    const orderedRankB = rankB === -1 ? LANGUAGE_ORDER.length : rankB;
+
+    return orderedRankA - orderedRankB ||
+      a.songNumber - b.songNumber ||
+      a.id - b.id;
+  });
 }
 
 function parseDisplayToSections(display: string): SongDetail['sections'] {
@@ -183,16 +199,16 @@ export async function getSongs(): Promise<SongIndex[]> {
 
   if (localSongs.length > 0) {
     console.log('📱 App Mode: Returning songs from IndexedDB');
-    return localSongs.map(normalizeSongIndex);
+    return sortSongIndex(localSongs.map(normalizeSongIndex));
   }
 
   const indexData = await fetchExport<ExportIndex>('index.json');
   if (!Array.isArray(indexData.songs)) throw new Error('Static song index is malformed.');
 
-  const indices = indexData.songs.map(song => normalizeSongIndex({
+  const indices = sortSongIndex(indexData.songs.map(song => normalizeSongIndex({
     ...song,
     searchTokens: song.searchTokens || `${song.title} ${song.artist || ''} ${song.language || ''}`.toLowerCase(),
-  }));
+  })));
   await db.songIndex.bulkPut(indices);
   return indices;
 }
