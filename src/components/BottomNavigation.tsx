@@ -38,10 +38,10 @@ function BottomNavigation() {
       </button>
 
       {/* Divider */}
-      <div className="w-px bg-zinc-800" />
+      {/* <div className="w-px bg-zinc-800" /> */}
 
       {/* Room Info Tab */}
-      <button
+      {/* <button
         onClick={() => navigate('/room-info')}
         title="Room Info"
         className={`flex-1 py-4 text-center text-sm font-semibold tracking-wide transition-all ${
@@ -52,7 +52,7 @@ function BottomNavigation() {
       >
         <span aria-hidden="true" className="mr-1">▣</span>
         Room Info
-      </button>
+      </button> */}
     </div>
   )
 }
